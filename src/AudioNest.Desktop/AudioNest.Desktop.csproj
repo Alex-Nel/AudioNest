@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- Windows are constructed by DI; runtime XAML activation is intentionally unused. -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AudioNest.Application/AudioNest.Application.csproj" />
+    <ProjectReference Include="../AudioNest.Audio/AudioNest.Audio.csproj" />
+    <ProjectReference Include="../AudioNest.Hardware.SoundFlow/AudioNest.Hardware.SoundFlow.csproj" />
+    <ProjectReference Include="../AudioNest.Persistence/AudioNest.Persistence.csproj" />
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+</Project>

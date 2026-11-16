@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../AudioNest.Domain/AudioNest.Domain.csproj" />
+    <ProjectReference Include="../AudioNest.Hardware/AudioNest.Hardware.csproj" />
+  </ItemGroup>
+</Project>

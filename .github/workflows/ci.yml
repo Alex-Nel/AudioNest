@@ -1,0 +1,35 @@
+name: build-and-test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore AudioNest.sln
+      - run: dotnet build AudioNest.sln -c Release --no-restore
+      - run: dotnet test AudioNest.sln -c Release --no-build --logger trx
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}
+          path: "**/TestResults/*.trx"
+
+  native-aot:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet publish src/AudioNest.Desktop -c Release -r win-x64 -p:PublishAot=true -o artifacts/aot/win-x64
