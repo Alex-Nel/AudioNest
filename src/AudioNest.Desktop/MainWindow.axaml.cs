@@ -17,7 +17,7 @@ public partial class MainWindow : Window
     private bool _confirmingClose;
     private bool _synchronizingScroll;
     private double _inspectorWidth = 280;
-    private double _meterWidth = 184;
+    private double _meterWidth = 240;
     private bool _altZoomUsed;
     private bool _spacePressed;
     private static readonly FilePickerFileType ProjectType = new("AudioNest project") { Patterns = ["*.audionest"] };

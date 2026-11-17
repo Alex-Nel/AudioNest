@@ -14,7 +14,7 @@ public sealed class RenderPlan
     private readonly PreparedTrack[] _tracks;
     private readonly float[] _clipScratch;
     private readonly float[] _trackScratch;
-    private sealed record PreparedClip(AudioClip Clip, AudioBuffer Buffer, IAudioProcessor[] Effects);
+    private sealed record PreparedClip(AudioClip Clip, AudioBuffer Buffer, IAudioProcessor[] Effects, float Left, float Right);
     private sealed record PreparedTrack(PreparedClip[] Clips, IAudioProcessor[] Effects, float Left, float Right, bool Mono);
 
     public RenderPlan(AudioProject project, Func<Guid, AudioBuffer> getBuffer, IAudioEffectFactory? effects = null)
@@ -29,12 +29,14 @@ public sealed class RenderPlan
             chain.Where(e => !e.Bypassed).Select(e => effects.Create(e, Format)).ToArray();
         var anySolo = project.Tracks.Any(t => t.Solo);
         _tracks = project.Tracks.Where(t => !t.Muted && (!anySolo || t.Solo)).Select(t =>
-            new PreparedTrack(t.Clips.Select(c =>
+            new PreparedTrack(t.Clips.Where(c => !c.Muted).Select(c =>
             {
                 var buffer = getBuffer(c.AssetId);
                 if (buffer.Format != Format || c.SourceOffset + c.Length > buffer.FrameCount)
                     throw new InvalidDataException("Decoded audio does not match the project.");
-                return new PreparedClip(c, buffer, Prepare(c.Effects));
+                return new PreparedClip(c, buffer, Prepare(c.Effects),
+                    t.Layout == TrackChannelLayout.Mono ? 1 : 1 - Math.Max(0, c.Pan),
+                    t.Layout == TrackChannelLayout.Mono ? 1 : 1 + Math.Min(0, c.Pan));
             }).ToArray(), Prepare(t.Effects),
                 t.Layout == TrackChannelLayout.Mono ? 1 : 1 - Math.Max(0, t.Pan),
                 t.Layout == TrackChannelLayout.Mono ? 1 : 1 + Math.Min(0, t.Pan),
@@ -66,13 +68,15 @@ public sealed class RenderPlan
                     for (var i = 0; i < clipSamples.Length; i++)
                     {
                         var sourceFrame = clip.Clip.SourceOffset + from - clip.Clip.Start + i / Format.Channels;
-                        clipSamples[i] = track.Mono
+                        var sample = track.Mono
                             ? clip.Buffer.Sample(sourceFrame, 0) * 0.5f + clip.Buffer.Sample(sourceFrame, 1) * 0.5f
                             : clip.Buffer.Sample(sourceFrame, i % Format.Channels);
+                        clipSamples[i] = sample * clip.Clip.Volume;
                     }
                     Process(clipSamples, clip.Effects);
                     var destination = (int)(from - blockStart) * Format.Channels;
-                    for (var i = 0; i < clipSamples.Length; i++) trackSamples[destination + i] += clipSamples[i];
+                    for (var i = 0; i < clipSamples.Length; i++)
+                        trackSamples[destination + i] += clipSamples[i] * (i % 2 == 0 ? clip.Left : clip.Right);
                 }
                 Process(trackSamples, track.Effects);
                 if (track.Mono)

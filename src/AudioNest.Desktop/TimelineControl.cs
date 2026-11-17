@@ -110,13 +110,15 @@ public sealed class TimelineControl : Control
                     var selected = vm.IsClipSelected(clip.Id);
                     context.FillRectangle(selected ? palette.ClipSelected : palette.Clip, rect);
                     context.DrawRectangle(new Pen(selected ? palette.Accent : palette.Grid, selected ? 2 : 1), rect.Deflate(0.5));
-                    if (selected && vm.IsSelectionTool && rect.Width >= 12)
+                    if (selected && !clip.Locked && vm.IsSelectionTool && rect.Width >= 12)
                     {
                         context.DrawLine(new Pen(palette.Accent, 2), new Point(rect.Left + 4, rect.Y + 42), new Point(rect.Left + 4, rect.Bottom - 18));
                         context.DrawLine(new Pen(palette.Accent, 2), new Point(rect.Right - 4, rect.Y + 42), new Point(rect.Right - 4, rect.Bottom - 18));
                     }
-                    var clipGain = clip.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1;
+                    var clipGain = clip.Volume * (clip.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1);
                     var label = $"{clip.Name}  ·  {20 * Math.Log10(Math.Max(0.0001, clipGain)):0.0} dB";
+                    if (clip.Muted) label += "  · MUTED";
+                    if (clip.Locked) label += "  · LOCKED";
                     if (clip.Effects.Any(e => e.Kind == EffectKind.HardLimiter)) label += "  · LIM";
                     Text(context, label, new Point(Math.Max(rect.X + 8, visible.Left + 8), rect.Y + 8), palette.Text, 11);
                     var buffer = vm.Buffer(clip.AssetId);
@@ -211,6 +213,9 @@ public sealed class TimelineControl : Control
             }
             _dragClip = clip;
             if (clip is not null && !_vm.IsClipSelected(clip.Id)) { e.Handled = true; return; }
+            if (clip is not null && (clip.Locked ||
+                GestureAt(clip, _press.X) == Gesture.Move && _vm.Project.Tracks.SelectMany(t => t.Clips).Any(c => c.Locked && _vm.IsClipSelected(c.Id))))
+            { _dragClip = null; e.Handled = true; return; }
             if (clip is not null) _gesture = GestureAt(clip, _press.X);
             if (clip is not null) e.Pointer.Capture(this);
         }
@@ -224,7 +229,7 @@ public sealed class TimelineControl : Control
         {
             var clip = HitClip(e.GetPosition(this));
             Cursor = new Cursor(_vm?.IsRazorTool == true ? StandardCursorType.Cross :
-                clip is not null && GestureAt(clip, e.GetPosition(this).X) != Gesture.Move ? StandardCursorType.SizeWestEast : StandardCursorType.Arrow);
+                clip is { Locked: false } && GestureAt(clip, e.GetPosition(this).X) != Gesture.Move ? StandardCursorType.SizeWestEast : StandardCursorType.Arrow);
             return;
         }
         _pointer = e.GetPosition(this);

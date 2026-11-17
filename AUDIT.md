@@ -455,3 +455,65 @@ Further implementation and verification entries are appended below.
 - No physical playback/recording was activated. Audible transition acceptance,
   non-Windows execution, and platform-native keyboard/menu checks remain manual.
 - `TODO.txt` was not changed. No commits or pushes were created.
+
+## 2026-11-17 — Immediate clip properties and simplified inspector
+
+- Read the four new TODO items from a clean working tree.
+- Replace boxed inspector sections with full-width 3 px separators; remove global
+  action/apply buttons, effect-add buttons, and the track section.
+- Add independent persisted clip mute/lock/volume/pan with immediate validated
+  name/start editing, 5% clip sliders, and live previews. Lock anchors grouped
+  moves and prevents repositioning/trimming; mono tracks keep clip pan centered.
+- Increase default meter-section width to 240 px and meter height to 10 px.
+- Bump project format to v3 so older readers cannot silently ignore clip audio/
+  lock semantics; upgrade v1/v2 in memory with neutral defaults.
+- Added validated clip fields (`Muted`, `Locked`, `Volume`, `Pan`) with unmuted/
+  unlocked/unity/center defaults. Clipboard and split metadata copies retain these
+  fields automatically. Legacy migration tests exposed source-generated JSON
+  init-only assignment replacing absent volume with zero; an explicit optional
+  JSON constructor parameter now preserves unity without reflection.
+- The shared render graph omits muted clips without changing timeline duration.
+  Clip volume is applied before clip effects, clip stereo balance after effects,
+  and track processing remains independent. Mono ignores both saved pan fields
+  and stays centered. Existing ordered gain effects remain unchanged and multiply
+  with global clip volume.
+- Immediate name/start setters validate locally and preserve incomplete/invalid
+  text without corrupting the project. No Apply button or numeric spinner remains.
+  Names retain typed spaces; unrelated property changes do not erase invalid input.
+  Global mute/lock/mix edits use the live graph path; time repositioning remains a
+  structural edit that pauses playback. Sliders use 12 px thumbs, 0.05 steps, live
+  preview, and one undo commit per drag. Switching selection restores the persisted
+  mix and cannot leak a preview onto the next clip.
+- Locked clips cannot be moved between tracks/in time, edited through the start
+  field, or edge-trimmed. Any locked group member anchors the complete group,
+  preserving relative spacing. Explicit split/delete/paste are still available.
+  Timeline labels include mute/lock state, and locked clips show no trim handles.
+- Removed obsolete inspector action commands. Typed effect sections and their
+  enable/remove/parameter controls remain; effects are added/configured through
+  the existing Effects menu. Global properties remain permanent and unboxed.
+- Increased the toolbar meter default from 184 to 240 px and meter bars from 7 to
+  10 px; existing resize constraints and separated 18 px rows remain intact.
+- Updated README, architecture, feature status, and acceptance checks for immediate
+  fields, clip-only audio/locking, simplified sections, meter sizes, and v3 migration.
+- Added nine tests covering independent clip/track rendering and WAV parity,
+  signal-chain order/validation, pure and pointer lock enforcement, grouped locks,
+  clipboard/split property retention, v1/v2 neutral defaults and v3 save/open,
+  immediate real text controls, live volume/pan drags/history, selection-change
+  preview cancellation, mono pan disabling, removed inspector buttons, full-width
+  separators, compact thumb bounds, checkbox gestures, and meter dimensions/gaps.
+  Updated earlier inspector tests to the new immediate/no-button behavior.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **85 passed, 0 failed,
+  0 skipped**, with no build warnings/errors.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git diff --check`: passed.
+- Windows x64 Native AOT publish succeeded without warnings. Native startup and
+  normal-close smoke check exited with code 0; no test process was retained.
+- Inspected light/dark `inspector-global-*.png` captures in ignored test output.
+  The unboxed global/effect sections, checkboxes/sliders, extended separators,
+  and larger, non-overlapping meters render correctly.
+- Physical audio-device acceptance and non-Windows/native platform checks remain
+  manual; no speakers or microphone were activated.
+- `TODO.txt` was left unchanged. No commits or pushes were created.

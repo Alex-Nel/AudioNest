@@ -98,7 +98,7 @@ public sealed class TimelineEditingTests
         await File.WriteAllTextAsync(path, json.ToJsonString());
         var upgraded = await store.LoadAsync(path);
         Assert.Equal(TrackChannelLayout.Stereo, upgraded.Tracks[0].Layout);
-        Assert.Equal(2, upgraded.Version);
+        Assert.Equal(AudioProject.CurrentVersion, upgraded.Version);
         Assert.Equal(1, System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(path))!["version"]!.GetValue<int>());
     }
 }

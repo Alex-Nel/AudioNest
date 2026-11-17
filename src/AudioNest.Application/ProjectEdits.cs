@@ -94,6 +94,7 @@ public static class ProjectEdits
     {
         if (start < 0) throw new ArgumentOutOfRangeException(nameof(start));
         var clip = FindTrack(project, clipId).Clips.First(c => c.Id == clipId);
+        if (clip.Locked) return project;
         return UpdateTrack(Delete(project, clipId), destinationTrack,
             t => t with { Clips = t.Clips.Add(clip with { Start = start }) });
     }
@@ -106,7 +107,8 @@ public static class ProjectEdits
     public static AudioProject MoveClips(AudioProject project, IReadOnlySet<Guid> ids, long frameDelta, int trackDelta)
     {
         var selected = project.Tracks.SelectMany((t, i) => t.Clips.Where(c => ids.Contains(c.Id)).Select(c => (Clip: c, Track: i))).ToArray();
-        if (selected.Length == 0) return project;
+        // A locked member anchors the whole group; never silently change spacing.
+        if (selected.Length == 0 || selected.Any(c => c.Clip.Locked)) return project;
         frameDelta = Math.Clamp(frameDelta, -selected.Min(c => c.Clip.Start), long.MaxValue - selected.Max(c => c.Clip.End));
         trackDelta = Math.Clamp(trackDelta, -selected.Min(c => c.Track), project.Tracks.Length - 1 - selected.Max(c => c.Track));
         if (frameDelta == 0 && trackDelta == 0) return project;
@@ -118,6 +120,9 @@ public static class ProjectEdits
         }
         return project with { Tracks = tracks.ToImmutableArray() };
     }
+
+    public static AudioProject SetClipStart(AudioProject project, Guid id, long start) =>
+        UpdateClip(project, id, clip => clip.Locked || clip.Start == start ? clip : clip with { Start = start });
 
     private static int FindIndex<T>(this ImmutableArray<T> items, Func<T, bool> predicate)
     {

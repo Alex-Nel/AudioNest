@@ -5,7 +5,7 @@
 | Multitrack timeline with waveforms | Implemented; grouped selection/dragging, rename, resizable tracks |
 | Split/delete/move shortcuts | Implemented; razor, edge trims, cut/copy/paste, and context menus |
 | Non-destructive editing | Implemented; shared sources and bounded undo/redo |
-| Clip, segment, and track effects | Gain/hard limiter; typed removable clip-editor sections, permanent global properties; split clips define segments |
+| Clip, segment, and track effects | Gain/hard limiter; unboxed typed clip editors, immediate global name/start/mute/lock/volume/pan; split clips define segments |
 | Noise reduction/compressor/normalizer/reverb/echo/distortion | Not implemented |
 | Independent pitch, tempo, speed | Not implemented |
 | VST 2.x / 3.x | Not implemented; ABI/licensing/isolation design still needed |

@@ -66,7 +66,7 @@ Use disposable test material first:
   should average channels, stay centered despite legacy saved pan, disable the
   pan slider, show the downmix envelope, and match exports.
   Load a v1 project and confirm stereo defaults without changing the source file;
-  save/reopen v2 mono projects.
+  save/reopen v3 mono projects, including upgrading older v2 mono projects.
 - Resize to 760–1500 px widths and vary height; confirm pinned track headers,
   ruler/clip horizontal alignment, fixed horizontal scrollbar, and inspector hiding.
 - Toggle light/dark mode and operate File/Edit/Effects/Tools/Help. On macOS,
@@ -83,16 +83,28 @@ Use disposable test material first:
 - After clicking track, toolbar, and inspector buttons/checkboxes, press and release
   Space repeatedly. Only playback should toggle, not the focused control. Hold
   Space to check key-repeat suppression; spaces in editable names still work.
-- In the inspector, edit name/start together, apply, undo/redo, save/reopen. Reject
-  empty names/negative starts. Add repeated gain/limiter sections, adjust each
-  independently, bypass/remove one, and undo. Check processing order, parameter
-  persistence, focus stability, live drag preview, one undo per drag, and scrolling
-  at the narrowest inspector width. The global section must not be removable.
+- In the inspector, change name/start text and confirm immediate application with
+  no Apply button or numeric spinners. Reject empty names/negative/invalid starts
+  without mutating the project; verify undo/redo/save/reopen and caret stability.
+  Toggle clip-only mute/lock, adjust 5% clip volume/pan, and compare against track
+  controls. Lock must block dragging, timeline-start edits, and edge trims; a mixed
+  locked/unlocked selected group must not partially move. Undo unlocking/locking.
+- Verify clip mute/mix in playback/export, centered mono despite saved clip pan,
+  property preservation through clipboard/split, and neutral v1/v2 migration.
+  Check global slider live previews, one undo per drag, and switching selection
+  during a preview without leaking that mix onto the new selection.
+- Use the Effects menu for gain/limiter sections, adjust each independently,
+  bypass/remove one, and undo. Check processing order, parameter persistence,
+  focus stability, live drag preview, and scrolling at the narrowest inspector
+  width. The global section remains permanent. Inspect full-width 3 px separators,
+  no section boxes, and no split/delete/nudge/add-effect/track buttons in the inspector.
 - Drag the inspector divider to both limits, shrink/restore the window, and
   verify remembered width and timeline/ruler alignment. Change clip selection and
   confirm status text and inspector metadata/effect rows follow the selection.
 - Resize the meter section independently, inspect consistent toolbar button sizes,
   adjacent skip buttons, grouped menu separators, and the softer light-mode canvas.
+  The default meter section should be 240 px wide, with 10 px-tall meter bars
+  separated by a visible gap in both light and dark modes.
 - Confirm separate Play and Pause buttons, skip-to-start/end, and live status-bar
   microsecond time/exact frame count while playing and seeking.
 - Apply gain/limiter to one segment and its parent track. Check mute and solo.

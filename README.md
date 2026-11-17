@@ -41,7 +41,7 @@ Microphone capture needs OS permission and an available default input device.
 
 **Space** toggles playback, **Home / End** skip to the start/end, **Ctrl/Cmd+S** saves,
 **Ctrl/Cmd+Shift+S** saves as, **Ctrl/Cmd+Z** undoes, and **Ctrl/Cmd+Shift+Z**
-or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
+or **Ctrl/Cmd+Y** redoes.
 In the editor, **Space** controls transport rather than activating a focused
 button or checkbox; text fields still accept spaces normally.
 **Ctrl/Cmd+C / X / V** copy, cut, and paste selected clips; keyboard/menu paste
@@ -72,9 +72,10 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
 - The timeline fills the available viewport; the track headers stay pinned during
   horizontal scrolling and the ruler stays pinned during vertical scrolling.
   Below 1100 px window width, the inspector hides to give the timeline room.
-  Its operations remain available through the menus. At wider sizes, drag its left
+  Timeline editing/effects remain available through the menus. At wider sizes, drag its left
   divider to resize it (200–520 px); that width is retained during the session.
-  The inspector has separate clip metadata, effects-list, and action sections.
+  The inspector has global clip properties and individual effect editors,
+  separated by full-width lines rather than boxes.
 - The compact status bar shows playhead time to six decimal places plus the exact
   project-frame index. Its left side identifies the selected track and clip;
   operation errors and recording/busy state remain visible.
@@ -93,22 +94,33 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   The same menu offers **Delete track**; the × button does the same operation.
   Drag the thin grip at the bottom of a header to resize that row between
   **164 and 600 px**. Track heights are session-local and do not dirty the project.
-- Two skinny toolbar meters show actual timeline output (speaker) and microphone
+- Two toolbar meters show actual timeline output (speaker) and microphone
   input (microphone), with dBFS readouts and peak decay. Input is metered **only
   while recording**: startup does not open or monitor the microphone.
   These are peak meters, not RMS/perceived-loudness or LUFS analysis.
+  Their section defaults to 240 px wide; each meter is 10 px tall with space between.
   Drag the divider beside this section to resize it (140–360 px, subject to window size).
 
 ### Editing behavior
 
-- The inspector begins with a permanent **Global properties** section: edit the
-  primary clip's name and timeline start, then **Apply properties** in one undoable
-  edit. Length/source offset are read-only here; trim in the timeline to change
-  its source region. Clip actions and nudges remain in this section.
+- The inspector begins with permanent **Global properties** for the primary clip:
+  name, mute, lock, timeline-start text, volume, and pan. Valid text changes apply
+  immediately, without an Apply button; invalid input shows an error and leaves
+  the project unchanged. Length/source offset are read-only; trim in the timeline
+  to change the source region.
+- Clip mute/volume/pan are independent of track controls. Volume is 0–2× and pan
+  is stereo balance from −1 to +1, both stepped by 5%. Sliders preview live audio
+  and commit one undo step per drag. Mono tracks disable clip pan and ignore saved
+  clip/track pan so output remains centered.
+- **Locked** prevents timeline/track movement, start-field edits, and edge trimming.
+  A selected group containing a locked clip stays anchored as a whole. Explicit
+  split/delete and clipboard operations remain available; split/pasted clips retain
+  their mute/lock/volume/pan. Unlock before repositioning a pasted locked clip.
 - Each clip effect has its own section, in processing order, with parameter controls,
-  an Enabled/bypass checkbox, and a remove button. **Add gain / Add limiter** append
-  independent instances (including repeated kinds). Gain controls amplitude; the
-  limiter controls its ceiling. Parameter drags preview audio and commit one undo
+  an Enabled/bypass checkbox, and a remove button. Use the **Effects** menu to
+  add/configure gain or a hard limiter; there are no add-effect or track controls in
+  the inspector. Global clip volume is applied before the effect chain and combines
+  with any existing gain effects. Parameter drags preview audio and commit one undo
   step. Removing/bypassing/editing a section affects only that effect instance.
 
 - Edge trimming is non-destructive and source-bounded. Expanding reveals the
@@ -142,9 +154,11 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
 - Missing/changed-length media or unsupported project versions fail with an error,
   without replacing the current session. Autosave/recovery UI and garbage
   collection are not implemented. Back up valuable recordings.
-- New saves use project format **v2**, which records track channel layout. Existing
-  v1 projects open with stereo defaults and upgrade in memory; their files are not
-  rewritten until Save. Older AudioNest versions reject v2 rather than misreading mono.
+- New saves use project format **v3**, including clip mute/lock/volume/pan.
+  Existing v1/v2 projects upgrade in memory with unmuted/unlocked, unity-volume,
+  centered-pan clip defaults (and stereo defaults for v1 tracks). Their files are
+  not rewritten until Save. Older AudioNest versions reject v3 rather than silently
+  ignoring these editing/audio semantics.
 
 ## Architecture
 

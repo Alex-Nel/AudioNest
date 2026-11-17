@@ -7,6 +7,7 @@ public static class ClipTrimming
 {
     public static AudioClip Start(AudioClip clip, long at)
     {
+        if (clip.Locked) return clip;
         var start = Math.Clamp(at, Math.Max(0, clip.Start - clip.SourceOffset), clip.End - 1);
         return start == clip.Start ? clip : clip with
         {
@@ -18,6 +19,7 @@ public static class ClipTrimming
 
     public static AudioClip End(AudioClip clip, AudioAsset asset, long at)
     {
+        if (clip.Locked) return clip;
         var maximum = clip.Start + Math.Min(asset.FrameCount - clip.SourceOffset, long.MaxValue - clip.Start);
         var end = Math.Clamp(at, clip.Start + 1, maximum);
         return end == clip.End ? clip : clip with { Length = end - clip.Start };

@@ -192,7 +192,7 @@ public sealed class PlaybackAndInspectorTests
         {
             mute, solo, window.FindControl<Button>("SnapButton")!, window.FindControl<Button>("FitButton")!,
             window.FindControl<Button>("RazorToolButton")!, window.FindControl<Button>("StopButton")!,
-            window.FindControl<Button>("RecordButton")!, inspector.FindControl<Button>("ApplyClipPropertiesButton")!
+            window.FindControl<Button>("RecordButton")!, inspector.FindControl<CheckBox>("ClipMuteBox")!
         };
         foreach (var button in buttons)
         {
@@ -258,9 +258,9 @@ public sealed class PlaybackAndInspectorTests
         await vm.ImportAsync(TestProjects.WriteWave(directory.Path));
         var clip = vm.Project.Tracks[0].Clips[0];
         vm.Select(vm.Project.Tracks[0].Id, clip.Id);
-        vm.Inspector.AddGain.Execute(null);
-        vm.Inspector.AddLimiter.Execute(null);
-        vm.Inspector.AddGain.Execute(null); // Repeated kinds remain independent instances.
+        vm.AddClipEffect(EffectKind.Gain);
+        vm.AddClipEffect(EffectKind.HardLimiter);
+        vm.AddClipEffect(EffectKind.Gain); // Repeated kinds remain independent instances.
         var editors = vm.Inspector.Effects.ToArray();
         var gain = Assert.IsType<GainEffectEditorViewModel>(editors[0]);
         var limiter = Assert.IsType<LimiterEffectEditorViewModel>(editors[1]);
@@ -283,21 +283,25 @@ public sealed class PlaybackAndInspectorTests
         Assert.Equal(0.5f, vm.SelectedClip.Effects[0].Value);
         var properties = vm.Inspector.Properties;
         properties.Name = "";
-        Assert.False(properties.Apply.CanExecute(null));
+        Assert.True(properties.HasError);
+        Assert.Equal(clip.Name, vm.SelectedClip.Name);
         properties.Name = "Edited clip";
-        properties.StartSeconds = -1;
-        Assert.False(properties.Apply.CanExecute(null));
-        properties.StartSeconds = 1.25m;
-        vm.Tick(); vm.Seek(0); // Presentation notifications must not erase drafts.
+        properties.StartText = "-1";
+        Assert.True(properties.HasError);
+        Assert.Equal(0, vm.SelectedClip.Start);
+        properties.StartText = "1.25";
+        vm.Tick(); vm.Seek(0); // Presentation notifications must not erase valid edits.
         Assert.Equal("Edited clip", properties.Name);
-        properties.Apply.Execute(null);
         Assert.Equal("Edited clip", vm.SelectedClip.Name);
         Assert.Equal(60000, vm.SelectedClip.Start);
         Assert.Equal(clip.Length, vm.SelectedClip.Length);
         Assert.Equal(clip.SourceOffset, vm.SelectedClip.SourceOffset);
         vm.Undo();
-        Assert.Equal(clip.Name, vm.SelectedClip.Name);
+        Assert.Equal("Edited clip", vm.SelectedClip.Name);
         Assert.Equal(0, vm.SelectedClip.Start);
+        vm.Undo();
+        Assert.Equal(clip.Name, vm.SelectedClip.Name);
+        vm.Redo();
         vm.Redo();
         var path = Path.Combine(directory.Path, "inspector.audionest");
         await vm.SaveAsync(path); await vm.OpenAsync(path);
@@ -324,7 +328,7 @@ public sealed class PlaybackAndInspectorTests
         using var vm = Create(backend, directory);
         await vm.ImportAsync(TestProjects.WriteWave(directory.Path));
         vm.Select(vm.Project.Tracks[0].Id, vm.Project.Tracks[0].Clips[0].Id);
-        vm.Inspector.AddGain.Execute(null);
+        vm.AddClipEffect(EffectKind.Gain);
         var gain = Assert.IsType<GainEffectEditorViewModel>(vm.Inspector.Effects[0]);
         vm.StartPlayback();
         var output = backend.Output!;
@@ -350,7 +354,7 @@ public sealed class PlaybackAndInspectorTests
         using var vm = Create(backend, directory);
         await vm.ImportAsync(TestProjects.WriteWave(directory.Path));
         vm.Select(vm.Project.Tracks[0].Id, vm.Project.Tracks[0].Clips[0].Id);
-        vm.Inspector.AddGain.Execute(null);
+        vm.AddClipEffect(EffectKind.Gain);
         var gain = Assert.IsType<GainEffectEditorViewModel>(vm.Inspector.Effects[0]);
         vm.StartPlayback();
         gain.BeginAdjustment(); gain.Value = 0;
@@ -371,7 +375,7 @@ public sealed class PlaybackAndInspectorTests
         using var vm = Create(backend, directory);
         await vm.ImportAsync(TestProjects.WriteWave(directory.Path));
         vm.Select(vm.Project.Tracks[0].Id, vm.Project.Tracks[0].Clips[0].Id);
-        vm.Inspector.AddGain.Execute(null);
+        vm.AddClipEffect(EffectKind.Gain);
         var window = new MainWindow(vm) { WindowState = WindowState.Normal, Height = 1000 };
         window.Show(); Layout();
         vm.StartPlayback();

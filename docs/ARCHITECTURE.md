@@ -44,7 +44,8 @@ shared PCM, private processor instances, and preallocated scratch buffers. It mi
 bounded 1024-frame blocks:
 
 ```text
-source region → clip effect chain → track sum → track effect chain
+source region → clip volume → clip effect chain → clip stereo balance
+              → track sum → track effect chain
               → stereo balance → master sum → safety clamp → device / audio exporter
 ```
 
@@ -102,13 +103,31 @@ them; key repeat is suppressed. Text-box descendants are exempt for text entry.
 Modal dialogs retain their normal keyboard behavior.
 
 `ClipInspectorViewModel` owns a permanent `ClipPropertiesViewModel` and an ordered
-observable collection of `ClipEffectEditorViewModel` sections. Name/start drafts
-commit together; source-region metadata stays read-only. Effect sections are stable
+observable collection of `ClipEffectEditorViewModel` sections. Global properties
+include immediate name/start text, clip mute/lock, and 5%-stepped clip volume/pan.
+Invalid text remains local without changing persisted metadata. A text-edit's own
+notifications preserve the typed form/caret; unrelated property edits do not erase
+invalid input. Source-region metadata stays read-only. Effect sections are stable
 across ordinary notifications/parameter edits, preserving focused controls. Changes
 in selection or chain shape rebuild the relevant editor set. Commands capture the
 clip ID, chain index, and expected effect record; detached/stale editors cannot
-silently edit another instance after removal. No effect IDs/project-version change
-are required.
+silently edit another instance after removal. The editor structure itself requires
+no new persisted effect IDs.
+
+Global volume is a dedicated 0–2× amplitude field applied before clip effects;
+existing ordered gain effects remain independent and unchanged. Clip balance is
+applied after clip effects and before track summing. Muted clips are omitted from
+the prepared graph without shortening the timeline. Mono tracks ignore clip and
+track pan and recenter after track processing. `ClipMixSlider` previews a prepared
+graph without project mutation and commits one edit on release/capture loss.
+Selection changes discard transient clip mix and restore the persisted graph.
+
+Locking prevents individual/group movement, timeline-start edits, and edge trims
+in the pure edit operations as well as the pointer UI. Any locked group member
+anchors the entire selection. Explicit split/delete/paste remain available, and
+record copies preserve all clip properties. Inspector sections use full-width 3 px
+dividers with no enclosing boxes; action/effect-add/track buttons live outside the
+inspector.
 
 `ClipEffectEditorFactory` explicitly registers typed gain/limiter editors; typed
 XAML templates provide their individual controls. The common base owns only section
@@ -223,9 +242,12 @@ an effect into the only surviving source.
 
 ## Persistence and AOT
 
-Version 2 is source-generated JSON plus a sibling media directory. V1 is upgraded
-in memory with stereo layout defaults; the original file is unchanged until Save.
-The version bump prevents older readers from ignoring mono-track semantics.
+Version 3 is source-generated JSON plus a sibling media directory. V1/V2 upgrade
+in memory with neutral clip defaults; V1 also receives stereo layout defaults.
+An optional JSON constructor parameter explicitly defaults missing clip volume to
+unity (source-generated init-only assignment would otherwise use zero).
+The original file is unchanged until Save. The version bump prevents older readers
+from ignoring clip mute/lock/mix semantics.
 Save copies
 SHA-256-addressed media first and replaces a temporary metadata file last. Export
 uses the same temporary-file publication pattern. These protect the old file on

@@ -6,7 +6,7 @@ namespace AudioNest.Domain;
 // Times are integer sample frames in the project clock, never UI pixels or wall time.
 public sealed record AudioProject
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
     public int Version { get; init; } = CurrentVersion;
     public string Name { get; init; } = "Untitled";
     public int SampleRate { get; init; } = 48000;
@@ -44,7 +44,9 @@ public sealed record AudioProject
                 if (clip.Id == Guid.Empty || !ids.Add(clip.Id) || asset is null ||
                     string.IsNullOrWhiteSpace(clip.Name) || clip.Start < 0 || clip.SourceOffset < 0 ||
                     clip.Length <= 0 || clip.Length > long.MaxValue - clip.Start ||
-                    clip.SourceOffset > asset.FrameCount || clip.Length > asset.FrameCount - clip.SourceOffset)
+                    clip.SourceOffset > asset.FrameCount || clip.Length > asset.FrameCount - clip.SourceOffset ||
+                    !float.IsFinite(clip.Volume) || clip.Volume is < 0 or > 2 ||
+                    !float.IsFinite(clip.Pan) || clip.Pan is < -1 or > 1)
                     throw new InvalidDataException("Invalid clip bounds or missing asset reference.");
                 ValidateEffects(clip.Effects);
             }
@@ -87,9 +89,18 @@ public enum TrackChannelLayout { Stereo, Mono }
 
 public sealed record AudioClip
 {
+    // An optional constructor parameter preserves unity for absent JSON volume.
+    // Source-generated init-only property setters otherwise supply default(float).
+    [JsonConstructor]
+    public AudioClip(float volume = 1) => Volume = volume;
+
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid AssetId { get; init; }
     public string Name { get; init; } = "Audio clip";
+    public bool Muted { get; init; }
+    public bool Locked { get; init; }
+    public float Volume { get; init; } = 1;
+    public float Pan { get; init; }
     public long Start { get; init; }
     public long SourceOffset { get; init; }
     public long Length { get; init; }

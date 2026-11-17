@@ -3,6 +3,13 @@
              xmlns:local="using:AudioNest.Desktop"
              xmlns:a="using:Avalonia.Automation"
              x:Class="AudioNest.Desktop.ClipInspectorView" x:DataType="local:ClipInspectorViewModel">
+  <UserControl.Resources>
+    <x:Double x:Key="SliderHorizontalThumbWidth">12</x:Double>
+    <x:Double x:Key="SliderHorizontalThumbHeight">12</x:Double>
+    <x:Double x:Key="SliderHorizontalHeight">28</x:Double>
+    <GridLength x:Key="SliderPreContentMargin">8</GridLength>
+    <GridLength x:Key="SliderPostContentMargin">8</GridLength>
+  </UserControl.Resources>
   <UserControl.DataTemplates>
     <!-- Each effect owns its editor template; multi-parameter effects can supply
          dedicated views without changing the inspector's section container. -->
@@ -37,61 +44,59 @@
       <TextBlock Text="CLIP" Classes="section" />
       <!-- Permanent, non-removable global section. Duration/source bounds remain
            read-only; timeline trimming owns source-region edits. -->
-      <Border BorderBrush="{DynamicResource EditorBorder}" BorderThickness="1" Padding="10">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Global properties" FontWeight="SemiBold" />
-          <StackPanel DataContext="{Binding Properties}" x:DataType="local:ClipPropertiesViewModel" Spacing="8">
-            <TextBlock Text="Name" FontSize="11" />
-            <TextBox x:Name="ClipNameEditor" Text="{Binding Name}" MaxLength="120" IsEnabled="{Binding CanEdit}"
-                     a:AutomationProperties.Name="Clip name" />
-            <TextBlock Text="Timeline start (seconds)" FontSize="11" />
-            <NumericUpDown x:Name="ClipStartEditor" Value="{Binding StartSeconds}" Minimum="0"
-                           Increment="0.1" FormatString="0.000000" IsEnabled="{Binding CanEdit}"
-                           a:AutomationProperties.Name="Clip start in seconds" />
-            <TextBlock Text="{Binding Error}" Foreground="#BA4545" TextWrapping="Wrap" FontSize="11" />
-            <Button x:Name="ApplyClipPropertiesButton" Content="Apply properties" Command="{Binding Apply}" />
-          </StackPanel>
-          <TextBlock Text="{Binding SelectionText}" TextWrapping="Wrap" LineHeight="20" FontSize="12" />
+      <StackPanel Spacing="8">
+        <TextBlock Text="Global properties" FontWeight="SemiBold" />
+        <StackPanel DataContext="{Binding Properties}" x:DataType="local:ClipPropertiesViewModel" Spacing="8">
+          <TextBlock Text="Name" FontSize="11" />
+          <TextBox x:Name="ClipNameEditor" Text="{Binding Name}" MaxLength="120" IsEnabled="{Binding CanEdit}"
+                   a:AutomationProperties.Name="Clip name" />
           <WrapPanel>
-            <Button Content="← 0.1 s" Command="{Binding NudgeLeft}" Margin="0,0,6,6" />
-            <Button Content="0.1 s →" Command="{Binding NudgeRight}" Margin="0,0,6,6" />
+            <CheckBox x:Name="ClipMuteBox" Content="Muted" IsChecked="{Binding Muted}" IsEnabled="{Binding CanEdit}" Margin="0,0,14,0" />
+            <CheckBox x:Name="ClipLockBox" Content="Locked" IsChecked="{Binding Locked}" IsEnabled="{Binding CanEdit}"
+                      ToolTip.Tip="Prevent moving or trimming this clip" />
           </WrapPanel>
-          <Button Content="Split at playhead" Command="{Binding Split}" />
-          <Button Content="Delete selected clips" Command="{Binding Delete}" />
+          <TextBlock Text="Timeline start (seconds)" FontSize="11" />
+          <TextBox x:Name="ClipStartEditor" Text="{Binding StartText}" IsEnabled="{Binding CanMove}"
+                   a:AutomationProperties.Name="Clip start in seconds" />
+          <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#BA4545" TextWrapping="Wrap" FontSize="11" />
+          <Grid ColumnDefinitions="32,*,45">
+            <TextBlock Text="Vol" FontSize="11" VerticalAlignment="Center" />
+            <local:ClipMixSlider x:Name="ClipVolumeSlider" Grid.Column="1" Value="{Binding Volume}" Minimum="0" Maximum="2"
+                   TickFrequency="0.05" IsSnapToTickEnabled="True" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanEdit}"
+                   a:AutomationProperties.Name="Clip volume" ToolTip.Tip="Volume: 0 is silence, 1 is original, 2 is twice the amplitude" />
+            <TextBlock Grid.Column="2" Text="{Binding VolumeText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
+          </Grid>
+          <Grid ColumnDefinitions="32,*,45">
+            <TextBlock Text="Pan" FontSize="11" VerticalAlignment="Center" />
+            <local:ClipMixSlider x:Name="ClipPanSlider" Grid.Column="1" IsPan="True" Value="{Binding Pan}" Minimum="-1" Maximum="1"
+                   TickFrequency="0.05" IsSnapToTickEnabled="True" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanPan}"
+                   a:AutomationProperties.Name="Clip stereo balance" ToolTip.Tip="Clip stereo balance; disabled on mono tracks" />
+            <TextBlock Grid.Column="2" Text="{Binding BalanceText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
+          </Grid>
         </StackPanel>
-      </Border>
+        <TextBlock Text="{Binding SelectionText}" TextWrapping="Wrap" LineHeight="20" FontSize="12" />
+      </StackPanel>
+      <Border Classes="inspectorDivider" Height="3" Background="{DynamicResource EditorBorder}" />
       <TextBlock Text="EFFECTS · IN PROCESSING ORDER" Classes="section" TextWrapping="Wrap" />
-      <TextBlock Text="No clip effects. Add a section below or use the Effects menu."
+      <TextBlock Text="No clip effects. Use the Effects menu to add an effect."
                  IsVisible="{Binding !HasEffects}" TextWrapping="Wrap"
                  Foreground="{DynamicResource EditorMuted}" FontSize="12" />
       <ItemsControl x:Name="EffectSections" ItemsSource="{Binding Effects}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="local:ClipEffectEditorViewModel">
-            <Border Padding="10" Margin="0,0,0,10" BorderBrush="{DynamicResource EditorBorder}" BorderThickness="1"
-                    IsEnabled="{Binding CanEdit}">
-              <StackPanel Spacing="10">
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                  <Button Grid.Column="1" Content="×" Classes="track" Command="{Binding Remove}"
-                          ToolTip.Tip="Remove this effect" a:AutomationProperties.Name="Remove clip effect" />
-                </Grid>
-                <CheckBox Content="Enabled" IsChecked="{Binding Enabled}" />
-                <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch" />
-              </StackPanel>
-            </Border>
+            <StackPanel Spacing="10" IsEnabled="{Binding CanEdit}" Margin="0,0,0,14">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="×" Classes="track" Command="{Binding Remove}"
+                        ToolTip.Tip="Remove this effect" a:AutomationProperties.Name="Remove clip effect" />
+              </Grid>
+              <CheckBox Content="Enabled" IsChecked="{Binding Enabled}" />
+              <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch" />
+              <Border Classes="inspectorDivider" Height="3" Background="{DynamicResource EditorBorder}" Margin="0,4,0,0" />
+            </StackPanel>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-      <WrapPanel>
-        <Button Content="Add gain" Command="{Binding AddGain}" Margin="0,0,6,6" />
-        <Button Content="Add limiter" Command="{Binding AddLimiter}" Margin="0,0,6,6" />
-      </WrapPanel>
-      <Border Height="1" Background="{DynamicResource EditorBorder}" />
-      <StackPanel Spacing="8">
-        <TextBlock Text="TRACK" Classes="section" />
-        <TextBlock Text="{Binding TrackName}" TextWrapping="Wrap" />
-        <Button Content="Toggle track limiter" Command="{Binding TrackLimiter}" />
-      </StackPanel>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

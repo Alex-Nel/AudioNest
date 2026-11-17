@@ -393,8 +393,26 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _transport.UpdatePlan(new RenderPlan(preview, asset => _library[asset]));
     }
 
-    public void UpdateClipProperties(Guid clip, string name, long start) => Edit("Clip properties",
-        p => ProjectEdits.UpdateClip(p, clip, c => c with { Name = name.Trim(), Start = start }));
+    public void SetClipName(Guid clip, string name) => Edit("Clip name",
+        p => ProjectEdits.UpdateClip(p, clip, c => c with { Name = name }), keepPlaying: true);
+    public void SetClipStart(Guid clip, long start) => Edit("Clip start", p => ProjectEdits.SetClipStart(p, clip, start));
+    public void SetClipMuted(Guid clip, bool muted) => Edit("Clip mute",
+        p => ProjectEdits.UpdateClip(p, clip, c => c with { Muted = muted }), keepPlaying: true);
+    public void SetClipLocked(Guid clip, bool locked) => Edit("Clip lock",
+        p => ProjectEdits.UpdateClip(p, clip, c => c with { Locked = locked }), keepPlaying: true);
+    private static AudioClip ClipMix(AudioClip clip, double? volume, double? pan) => clip with
+    {
+        Volume = (float)(volume ?? clip.Volume),
+        Pan = (float)(pan ?? clip.Pan)
+    };
+    public void SetClipMix(Guid clip, double? volume, double? pan) => Edit("Clip mix",
+        p => ProjectEdits.UpdateClip(p, clip, c => ClipMix(c, volume, pan)), keepPlaying: true);
+    public void PreviewClipMix(Guid clip, double? volume, double? pan)
+    {
+        if (!CanEdit) return;
+        var preview = ProjectEdits.UpdateClip(Project, clip, c => ClipMix(c, volume, pan));
+        _transport.UpdatePlan(new RenderPlan(preview, asset => _library[asset]));
+    }
     public void AddClipEffect(EffectKind kind)
     {
         if (SelectedClipId is not { } clip) return;
