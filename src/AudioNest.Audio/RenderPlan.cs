@@ -35,7 +35,9 @@ public sealed class RenderPlan
                 if (buffer.Format != Format || c.SourceOffset + c.Length > buffer.FrameCount)
                     throw new InvalidDataException("Decoded audio does not match the project.");
                 return new PreparedClip(c, buffer, Prepare(c.Effects));
-            }).ToArray(), Prepare(t.Effects), 1 - Math.Max(0, t.Pan), 1 + Math.Min(0, t.Pan),
+            }).ToArray(), Prepare(t.Effects),
+                t.Layout == TrackChannelLayout.Mono ? 1 : 1 - Math.Max(0, t.Pan),
+                t.Layout == TrackChannelLayout.Mono ? 1 : 1 + Math.Min(0, t.Pan),
                 t.Layout == TrackChannelLayout.Mono)).ToArray();
     }
 
@@ -73,6 +75,9 @@ public sealed class RenderPlan
                     for (var i = 0; i < clipSamples.Length; i++) trackSamples[destination + i] += clipSamples[i];
                 }
                 Process(trackSamples, track.Effects);
+                if (track.Mono)
+                    for (var i = 0; i < trackSamples.Length; i += 2)
+                        trackSamples[i] = trackSamples[i + 1] = trackSamples[i] * 0.5f + trackSamples[i + 1] * 0.5f;
                 for (var i = 0; i < block.Length; i++)
                     block[i] += trackSamples[i] * (i % 2 == 0 ? track.Left : track.Right);
             }

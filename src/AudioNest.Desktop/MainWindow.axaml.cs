@@ -19,8 +19,7 @@ public partial class MainWindow : Window
     private double _meterWidth = 184;
     private bool _altZoomUsed;
     private static readonly FilePickerFileType ProjectType = new("AudioNest project") { Patterns = ["*.audionest"] };
-    private static readonly FilePickerFileType AudioType = new("Audio files") { Patterns = ["*.wav", "*.mp3", "*.flac"] };
-    private static readonly FilePickerFileType WaveType = new("WAV audio") { Patterns = ["*.wav"] };
+    private static readonly FilePickerFileType AudioType = new("Audio files") { Patterns = ["*.wav", "*.mp3", "*.aac", "*.m4a", "*.ogg", "*.oga", "*.flac"] };
 
     public MainWindow(MainViewModel vm)
     {
@@ -41,9 +40,23 @@ public partial class MainWindow : Window
             TrackHeadersPanel.ContextMenu?.Close();
             TrackHeadersPanel.ContextMenu = null;
             e.Handled = true;
-            if (!_vm.CanEdit || !e.TryGetPosition(TrackHeadersPanel, out var point) ||
-                point.Y < _vm.Project.Tracks.Length * TimelineMetrics.TrackHeight) return;
-            TrackHeadersPanel.ContextMenu = TimelineContextMenus.TrackCreation(_vm);
+            if (!_vm.CanEdit || !e.TryGetPosition(TrackHeadersPanel, out var point)) return;
+            var row = _vm.TrackIndexAt(point.Y);
+            if (row >= 0)
+            {
+                var track = _vm.Project.Tracks[row];
+                var menu = new ContextMenu();
+                menu.Items.Add(new MenuItem { Header = "Rename track…", Command = new UiCommand(() => RunMenuAsync(() => RenameTrackAsync(track.Id))) });
+                menu.Items.Add(new MenuItem
+                {
+                    Header = "Mute track",
+                    Command = new UiCommand(() => _vm.ToggleTrackMute(track.Id)),
+                    ToggleType = MenuItemToggleType.CheckBox,
+                    IsChecked = track.Muted
+                });
+                TrackHeadersPanel.ContextMenu = menu;
+            }
+            else TrackHeadersPanel.ContextMenu = TimelineContextMenus.TrackCreation(_vm);
             TrackHeadersPanel.ContextMenu.Open(TrackHeadersPanel);
         };
         TimelineArea.AddHandler(PointerWheelChangedEvent, OnTimelineWheel, RoutingStrategies.Tunnel);
@@ -74,6 +87,30 @@ public partial class MainWindow : Window
         Deactivated += (_, _) => { _vm.IsLeftAltDown = _vm.IsLeftShiftDown = false; _altZoomUsed = false; };
         Closing += OnClosing;
         Closed += (_, _) => { _timer.Stop(); _vm.PropertyChanged -= OnViewModelChanged; };
+    }
+
+    private async Task RenameTrackAsync(Guid id)
+    {
+        var track = _vm.Project.Tracks.FirstOrDefault(t => t.Id == id);
+        if (track is null) return;
+        var dialog = new Window { Title = "Rename track", Width = 360, Height = 160, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var name = new TextBox { Name = "TrackNameBox", Text = track.Name, MaxLength = 120 };
+        var accept = new Button { Name = "RenameTrackButton", Content = "Rename", IsDefault = true };
+        var cancel = new Button { Content = "Cancel", IsCancel = true };
+        accept.Click += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(name.Text)) dialog.Close(name.Text.Trim());
+        };
+        cancel.Click += (_, _) => dialog.Close(null);
+        dialog.Content = new StackPanel
+        {
+            Margin = new Thickness(16),
+            Spacing = 12,
+            Children = { name, new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, Children = { accept, cancel } } }
+        };
+        dialog.Opened += (_, _) => { name.Focus(); name.SelectAll(); };
+        var result = await dialog.ShowDialog<string?>(this);
+        if (result is not null) _vm.RenameTrack(id, result);
     }
 
     private void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -259,8 +296,8 @@ public partial class MainWindow : Window
     }
     private async Task ExportAudioAsync()
     {
-        var path = await PickSaveAsync(WaveType, "Mixdown.wav", "wav");
-        if (path is not null) await _vm.ExportAsync(path);
+        var request = await new ExportOptionsWindow(_vm.Project.Duration > 0).ShowDialog<ExportRequest?>(this);
+        if (request is not null) await _vm.ExportAsync(request.Path, request.Format);
     }
     private void PlayClick(object? sender, RoutedEventArgs e) => _vm.StartPlayback();
     private void PauseClick(object? sender, RoutedEventArgs e) => _vm.Pause();

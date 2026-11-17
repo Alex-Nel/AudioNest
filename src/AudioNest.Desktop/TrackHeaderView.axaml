@@ -3,8 +3,15 @@
              xmlns:local="using:AudioNest.Desktop"
              xmlns:a="using:Avalonia.Automation"
              x:Class="AudioNest.Desktop.TrackHeaderView"
-             x:DataType="local:TrackHeaderViewModel" Height="148"
+             x:DataType="local:TrackHeaderViewModel" Height="{Binding Height}"
              PointerPressed="SelectTrack">
+  <UserControl.Resources>
+    <x:Double x:Key="SliderHorizontalThumbWidth">12</x:Double>
+    <x:Double x:Key="SliderHorizontalThumbHeight">12</x:Double>
+    <x:Double x:Key="SliderHorizontalHeight">28</x:Double>
+    <GridLength x:Key="SliderPreContentMargin">8</GridLength>
+    <GridLength x:Key="SliderPostContentMargin">8</GridLength>
+  </UserControl.Resources>
   <UserControl.Styles>
     <Style Selector="Border.trackSurface">
       <Setter Property="Background" Value="{DynamicResource EditorPanel}" />
@@ -15,7 +22,8 @@
   </UserControl.Styles>
   <Border Classes="trackSurface" Classes.selected="{Binding IsSelected}"
           BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,0,1,1" Padding="10,8">
-    <Grid RowDefinitions="28,28,34,34">
+    <Grid RowDefinitions="*,6">
+    <Grid RowDefinitions="28,28,40,40">
       <Grid ColumnDefinitions="Auto,*">
         <Button Content="×" Classes="track" Command="{Binding Delete}" Margin="0,0,7,0"
                 a:AutomationProperties.Name="Delete track" ToolTip.Tip="Delete track (undoable)" />
@@ -34,17 +42,24 @@
       <Grid Grid.Row="2" ColumnDefinitions="32,*,45" VerticalAlignment="Center">
         <TextBlock Text="Vol" Foreground="{DynamicResource EditorMuted}" VerticalAlignment="Center" FontSize="11" />
         <Slider x:Name="VolumeSlider" Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding Volume}"
-                TickFrequency="0.05" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanEdit}"
+                TickFrequency="0.05" IsSnapToTickEnabled="True" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanEdit}"
                 a:AutomationProperties.Name="Track volume" ToolTip.Tip="{Binding VolumeHint}" />
         <TextBlock Grid.Column="2" Text="{Binding VolumeText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
       </Grid>
       <Grid Grid.Row="3" ColumnDefinitions="32,*,45" VerticalAlignment="Center">
         <TextBlock Text="Pan" Foreground="{DynamicResource EditorMuted}" VerticalAlignment="Center" FontSize="11" />
         <Slider x:Name="PanSlider" Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding Pan}"
-                TickFrequency="0.1" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanEdit}"
+                TickFrequency="0.05" IsSnapToTickEnabled="True" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanPan}"
                 a:AutomationProperties.Name="Track stereo balance" ToolTip.Tip="Left −1 · Center 0 · Right +1" />
         <TextBlock Grid.Column="2" Text="{Binding BalanceText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
       </Grid>
+    </Grid>
+    <Thumb x:Name="TrackResizeGrip" Grid.Row="1" Cursor="SizeNorthSouth" Background="{DynamicResource EditorBorder}"
+           a:AutomationProperties.Name="Resize track height" ToolTip.Tip="Drag to resize this track">
+      <Thumb.Template>
+        <ControlTemplate><Border Background="{TemplateBinding Background}" /></ControlTemplate>
+      </Thumb.Template>
+    </Thumb>
     </Grid>
   </Border>
 </UserControl>

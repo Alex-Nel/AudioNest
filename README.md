@@ -1,7 +1,8 @@
 # AudioNest
 
 A C# / Avalonia audio editor foundation with non-destructive multitrack editing.
-SoundFlow + MiniAudio handles native audio I/O and decoding behind a replaceable adapter.
+SoundFlow + MiniAudio handles native audio I/O; its FFmpeg adapter adds codecs.
+Both stay behind replaceable hardware contracts.
 
 ## Run
 
@@ -19,24 +20,28 @@ Microphone capture needs OS permission and an available default input device.
 
 ## MVP workflow
 
-1. **Import audio** (WAV, MP3, FLAC), or **Record**, then **Stop** to add a take.
+1. **Import audio** (WAV, MP3, AAC/M4A, OGG, FLAC), or **Record** to see a growing
+   waveform draft, then **Stop** to finalize the take.
 2. Add stereo/mono tracks from **Edit**, or right-click empty space below the track
    headers. In the selection tool (**V**), drag clip centers to move them and edges
-   to trim. **Click/drag the time ruler** to position the playhead;
+    to trim. **Left Shift + click** adds/removes clips from the selection; drag a
+    selected clip's center to move the group. **Click/drag the time ruler** to position the playhead;
    clip and track-header clicks do not seek. Use the magnifier buttons or **Fit**.
-3. Press **S** to split at the cursor, **Delete** to remove the selected clip,
+3. Press **S** to split the primary clip at the cursor, **Delete** to remove selected clips,
    and use **Undo / Redo** as needed. To remove an interior segment, split at
    both ends, select the middle clip, and delete it. Deletion does not ripple.
    The razor tool (**C**) splits directly where a clip is clicked, without seeking.
 4. Use track-header **Mute / Solo**, the volume and stereo-balance sliders,
    and **×** beside the name (undoable track deletion). Clip effects are in the inspector; all
    clip/track effects are also in the **Effects** menu. Split first to process a segment.
-5. **Save** a `.audionest` project; **Export WAV** renders a stereo PCM16 mix.
+5. **Save** a `.audionest` project; **File → Export…** opens destination/Browse and
+   format options for WAV (PCM16), MP3, AAC (ADTS), OGG (Vorbis), or FLAC.
+   Export renders the same stereo mix as playback.
 
 **Space** toggles playback, **Home / End** skip to the start/end, **Ctrl/Cmd+S** saves,
 **Ctrl/Cmd+Shift+S** saves as, **Ctrl/Cmd+Z** undoes, and **Ctrl/Cmd+Shift+Z**
 or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
-**Ctrl/Cmd+C / X / V** copy, cut, and paste the selected clip; keyboard/menu paste
+**Ctrl/Cmd+C / X / V** copy, cut, and paste selected clips; keyboard/menu paste
 uses the selected track and playhead. Right-click paste/split uses the clicked time.
 
 ### Editor UI
@@ -73,12 +78,16 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   Playback position is device-frame-driven, not timer-driven.
 - Track volume is a linear amplitude multiplier: **0** is silence, **1** is
   unchanged, **2** is twice the amplitude (+6 dB). A slider drag previews its value
-  and commits on release/capture loss as one undo step. Pan ranges from −1 to +1.
+  and commits on release/capture loss as one undo step. Volume and pan use **5%**
+  increments; pan ranges from −1 to +1.
   Existing saved gains above 2× are preserved and labeled; moving the volume
   slider chooses a new value within 0–2×.
 - Track pan is **stereo balance**: center leaves both channels unchanged; moving
   toward one ear attenuates the opposite channel. It is saved with the project
-  and used identically in playback and WAV export.
+  and used identically in playback and every export format. Mono tracks cannot pan.
+- Right-click an existing track header to **Rename track…** (undoable and saved).
+  Drag the thin grip at the bottom of a header to resize that row between
+  **164 and 600 px**. Track heights are session-local and do not dirty the project.
 - Two skinny toolbar meters show actual timeline output (speaker) and microphone
   input (microphone), with dBFS readouts and peak decay. Input is metered **only
   while recording**: startup does not open or monitor the microphone.
@@ -93,14 +102,16 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
 - Right-click a clip for cut/copy/paste, split-here, and track mute. Empty space
   within a track offers paste (when available) and mute; empty header-column space
   offers stereo/mono track creation. Menus separate related action groups.
-- The internal clipboard holds **one clip**, including its source region and
-  effects, and survives project changes within the same app session. PCM is shared,
-  not duplicated. Paste creates a new clip identity and is independently undoable.
+- The internal clipboard holds the **selected group**, including source regions,
+  effects, relative timing, and relative track offsets, and survives project changes
+  within the same app session. PCM is shared, not duplicated. Paste creates fresh
+  clip identities and any missing destination tracks in one undoable edit.
   This is not an OS audio clipboard; cross-project paste requires matching project
   sample rates (new projects all use 48 kHz).
 - Stereo tracks retain both channels. Mono tracks non-destructively average L/R
   before clip effects and feed that mono signal to the stereo output, with the
-  track's normal gain/pan. Waveforms reflect the same downmix, including anti-phase
+  track's normal gain. Mono is recentered after track effects and ignores saved pan.
+  Waveforms reflect the same downmix, including anti-phase
   cancellation. Moving a clip back to stereo restores its original channel data.
 
 ### Files and safety
@@ -161,18 +172,21 @@ See [docs/TESTING.md](docs/TESTING.md) for hardware acceptance checks.
 ## Current limits
 
 - New projects are 48 kHz stereo; imported rates/channels are normalized by
-  MiniAudio. Export is WAV PCM16 only. Individual decoded assets are limited to
+  the hardware adapter. Export uses default codec settings (no bitrate/quality UI).
+  Individual decoded assets are limited to
   **10 minutes** and kept in RAM; this is not a large-session streaming engine.
 - Gain and a simple **hard limiter** are the only included effects. The final mix
   is hard-clamped to prevent out-of-range output, not loudness-normalized.
-- Capture uses the default microphone in mono, with no monitoring, overdub
-  playback, device-settings UI, live waveform, or recording-time effects.
+- Capture uses the default microphone in mono with a live peak-envelope preview,
+  but no monitoring, overdub playback, device-settings UI, or recording-time effects.
+  The envelope retains at most ten minutes; longer takes still exceed the import cap.
 - Pitch/tempo/speed processing, advanced built-in effects, and VST hosting are
   **not implemented**. Extension contracts are not claims of those capabilities.
 - Undo/redo retains 200 metadata edits and is not persisted across sessions.
 - Working media is intentionally retained; clean it manually only after saving
   and verifying all projects that need it.
 
-Dependencies retain their respective licenses. SoundFlow is MIT-licensed and
-bundles native dependencies; review its notices when packaging. Its upstream
+Dependencies retain their respective licenses. SoundFlow is MIT-licensed; its
+FFmpeg codec includes LGPL dependencies. See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)
+for packaging obligations and bundled notices. Its upstream
 maintainer has announced limited support through February 2027.

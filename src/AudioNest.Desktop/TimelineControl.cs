@@ -49,8 +49,9 @@ public sealed class TimelineControl : Control
     private AudioClip? HitClip(Point point)
     {
         if (_vm is null || point.Y < 0) return null;
-        var row = (int)(point.Y / TimelineMetrics.TrackHeight);
-        if (row >= _vm.Project.Tracks.Length || point.Y % TimelineMetrics.TrackHeight is < 8 or > TimelineMetrics.TrackHeight - 8)
+        var row = _vm.TrackIndexAt(point.Y);
+        if (row < 0 || point.Y - _vm.TrackTop(row) < 8 ||
+            point.Y - _vm.TrackTop(row) > _vm.TrackHeight(_vm.Project.Tracks[row].Id) - 8)
             return null;
         var clips = _vm.Project.Tracks[row].Clips;
         // Prefer the visible interior so a neighboring clip's resize halo cannot
@@ -77,9 +78,10 @@ public sealed class TimelineControl : Control
         context.FillRectangle(palette.Surface, new Rect(Bounds.Size));
         for (var i = 1; i < vm.Project.Tracks.Length; i += 2)
         {
-            var top = i * TimelineMetrics.TrackHeight;
-            if (top + TimelineMetrics.TrackHeight >= visible.Top && top <= visible.Bottom)
-                context.FillRectangle(palette.Alternate, new Rect(0, top, Bounds.Width, TimelineMetrics.TrackHeight));
+            var top = vm.TrackTop(i);
+            var height = vm.TrackHeight(vm.Project.Tracks[i].Id);
+            if (top + height >= visible.Top && top <= visible.Bottom)
+                context.FillRectangle(palette.Alternate, new Rect(0, top, Bounds.Width, height));
         }
         var gridPen = new Pen(palette.Grid, 1);
         var step = TimelineRulerControl.TickStep(vm.PixelsPerSecond);
@@ -91,20 +93,21 @@ public sealed class TimelineControl : Control
         }
         for (var i = 0; i < vm.Project.Tracks.Length; i++)
         {
-            var top = i * TimelineMetrics.TrackHeight;
-            if (top + TimelineMetrics.TrackHeight < visible.Top || top > visible.Bottom) continue;
             var track = vm.Project.Tracks[i];
-            context.DrawLine(gridPen, new Point(0, top + TimelineMetrics.TrackHeight - 1),
-                new Point(Bounds.Width, top + TimelineMetrics.TrackHeight - 1));
+            var top = vm.TrackTop(i);
+            var height = vm.TrackHeight(track.Id);
+            if (top + height < visible.Top || top > visible.Bottom) continue;
+            context.DrawLine(gridPen, new Point(0, top + height - 1),
+                new Point(Bounds.Width, top + height - 1));
             foreach (var original in track.Clips)
             {
                 var clip = _dragging && _dragClip?.Id == original.Id && _gesture != Gesture.Move
                     ? vm.PreviewTrim(original, TrimFrame(), _gesture == Gesture.TrimStart) : original;
-                var rect = new Rect(X(clip.Start), top + 8, Math.Max(2, X(clip.End) - X(clip.Start)), TimelineMetrics.TrackHeight - 16);
+                var rect = new Rect(X(clip.Start), top + 8, Math.Max(2, X(clip.End) - X(clip.Start)), height - 16);
                 if (!rect.Intersects(visible)) continue;
                 using (context.PushClip(rect))
                 {
-                    var selected = clip.Id == vm.SelectedClipId;
+                    var selected = vm.IsClipSelected(clip.Id);
                     context.FillRectangle(selected ? palette.ClipSelected : palette.Clip, rect);
                     context.DrawRectangle(new Pen(selected ? palette.Accent : palette.Grid, selected ? 2 : 1), rect.Deflate(0.5));
                     if (selected && vm.IsSelectionTool && rect.Width >= 12)
@@ -118,7 +121,8 @@ public sealed class TimelineControl : Control
                     Text(context, label, new Point(Math.Max(rect.X + 8, visible.Left + 8), rect.Y + 8), palette.Text, 11);
                     var buffer = vm.Buffer(clip.AssetId);
                     var pen = new Pen(palette.Wave, 1);
-                    var center = rect.Y + 78;
+                    var center = rect.Y + 30 + (rect.Height - 30) / 2;
+                    var amplitude = Math.Max(8, (rect.Height - 44) / 2);
                     var firstPixel = Math.Max(0, (int)(visible.Left - rect.X));
                     var lastPixel = Math.Min(rect.Width, visible.Right - rect.X);
                     for (var pixel = firstPixel; pixel < lastPixel; pixel += 2)
@@ -128,22 +132,53 @@ public sealed class TimelineControl : Control
                             clip.SourceOffset + (long)((pixel + 2) / rect.Width * clip.Length) + 1);
                         var peak = buffer.Peak(from, to, track.Layout == TrackChannelLayout.Mono);
                         var x = rect.X + pixel;
-                        context.DrawLine(pen, new Point(x, center - peak.Maximum * 38),
-                            new Point(x, center - peak.Minimum * 38 + 1));
+                        context.DrawLine(pen, new Point(x, center - peak.Maximum * amplitude),
+                            new Point(x, center - peak.Minimum * amplitude + 1));
                     }
                 }
             }
         }
-        if (vm.Project.Duration == 0)
+        DrawRecording(context, vm, palette, visible);
+        if (vm.Project.Duration == 0 && !vm.IsRecording)
             Text(context, "Import audio or record a take to begin.", new Point(visible.Left + 24, 54), palette.Muted, 13);
         if (_dragging && _gesture == Gesture.Move && _dragClip is not null && vm.Project.Tracks.Length > 0)
         {
             var snap = DragPosition();
-            var row = Math.Clamp((int)(_pointer.Y / TimelineMetrics.TrackHeight), 0, vm.Project.Tracks.Length - 1);
-            context.DrawRectangle(new Pen(palette.Accent, 2),
-                new Rect(X(snap.Start), row * TimelineMetrics.TrackHeight + 8, Math.Max(2, X(_dragClip.Length)), TimelineMetrics.TrackHeight - 16));
+            var row = TargetRow(_pointer.Y);
+            var moved = vm.PreviewMove(_dragClip.Id, vm.Project.Tracks[row].Id, snap.Start);
+            for (var i = 0; i < moved.Tracks.Length; i++)
+                foreach (var clip in moved.Tracks[i].Clips.Where(c => vm.IsClipSelected(c.Id)))
+                    context.DrawRectangle(new Pen(palette.Accent, 2),
+                        new Rect(X(clip.Start), vm.TrackTop(i) + 8, Math.Max(2, X(clip.Length)), vm.TrackHeight(moved.Tracks[i].Id) - 16));
             if (snap.Target is { } target)
                 context.DrawLine(new Pen(palette.Accent, 1), new Point(X(target), 0), new Point(X(target), Bounds.Height));
+        }
+    }
+    private int TargetRow(double y) => y < 0 ? 0 : _vm!.TrackIndexAt(y) is var row && row >= 0 ? row : _vm!.Project.Tracks.Length - 1;
+    private void DrawRecording(DrawingContext context, MainViewModel vm, TimelinePalette palette, Rect visible)
+    {
+        var snapshot = vm.LiveRecording;
+        var row = vm.TrackIndex(vm.RecordingTrackId);
+        if (snapshot is null || row < 0) return;
+        var rect = new Rect(X(vm.RecordingStart), vm.TrackTop(row) + 8, Math.Max(2, X(snapshot.Frames)), vm.TrackHeight(vm.RecordingTrackId) - 16);
+        if (!rect.Intersects(visible)) return;
+        using (context.PushClip(rect))
+        {
+            context.FillRectangle(palette.ClipSelected, rect);
+            context.DrawRectangle(new Pen(Brushes.IndianRed, 2), rect.Deflate(0.5));
+            Text(context, "● Recording…", new Point(Math.Max(rect.X + 8, visible.Left + 8), rect.Y + 8), palette.Text, 11);
+            var center = rect.Y + 30 + (rect.Height - 30) / 2;
+            var amplitude = Math.Max(8, (rect.Height - 44) / 2);
+            for (var pixel = Math.Max(0, (int)(visible.Left - rect.Left)); pixel < Math.Min(rect.Width, visible.Right - rect.Left); pixel += 2)
+            {
+                var from = (int)(pixel / vm.PixelsPerSecond * snapshot.SampleRate / snapshot.FramesPerPeak);
+                var to = (int)((pixel + 2) / vm.PixelsPerSecond * snapshot.SampleRate / snapshot.FramesPerPeak) + 1;
+                var min = 0f; var max = 0f;
+                for (var i = from; i < Math.Min(to, snapshot.Peaks.Length); i++)
+                { min = Math.Min(min, snapshot.Peaks[i].Minimum); max = Math.Max(max, snapshot.Peaks[i].Maximum); }
+                context.DrawLine(new Pen(palette.Wave, 1), new Point(rect.X + pixel, center - max * amplitude),
+                    new Point(rect.X + pixel, center - min * amplitude + 1));
+            }
         }
     }
     internal static void Text(DrawingContext context, string value, Point point, IBrush brush, double size)
@@ -161,12 +196,13 @@ public sealed class TimelineControl : Control
         _dragClip = null;
         _dragging = false;
         _bypassSnapping = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-        var row = (int)(_press.Y / TimelineMetrics.TrackHeight);
-        if (_press.Y >= 0 && row < _vm.Project.Tracks.Length)
+        var row = _vm.TrackIndexAt(_press.Y);
+        if (row >= 0)
         {
             var track = _vm.Project.Tracks[row];
             var clip = HitClip(_press);
-            _vm.Select(track.Id, clip?.Id);
+            _vm.Select(track.Id, clip?.Id, _vm.IsSelectionTool && _vm.IsLeftShiftDown,
+                preserveGroup: clip is not null && _vm.IsClipSelected(clip.Id));
             if (_vm.IsRazorTool)
             {
                 if (clip is not null) _vm.SplitAt(clip.Id, Frame(_press.X));
@@ -174,6 +210,7 @@ public sealed class TimelineControl : Control
                 return;
             }
             _dragClip = clip;
+            if (clip is not null && !_vm.IsClipSelected(clip.Id)) { e.Handled = true; return; }
             if (clip is not null) _gesture = GestureAt(clip, _press.X);
             if (clip is not null) e.Pointer.Capture(this);
         }
@@ -206,10 +243,10 @@ public sealed class TimelineControl : Control
             if (_gesture != Gesture.Move) _vm.Trim(_dragClip.Id, TrimFrame(), _gesture == Gesture.TrimStart);
             else
             {
-                var row = Math.Clamp((int)(_pointer.Y / TimelineMetrics.TrackHeight), 0, _vm.Project.Tracks.Length - 1);
+                var row = TargetRow(_pointer.Y);
                 var track = _vm.Project.Tracks[row];
                 _vm.Move(_dragClip.Id, track.Id, DragPosition().Start);
-                _vm.Select(track.Id, _dragClip.Id);
+                _vm.Select(ProjectEdits.FindTrack(_vm.Project, _dragClip.Id).Id, _dragClip.Id, preserveGroup: true);
             }
         }
         _dragClip = null;
@@ -230,11 +267,11 @@ public sealed class TimelineControl : Control
         ContextMenu = null;
         e.Handled = true;
         if (_vm is null || !_vm.CanEdit || !e.TryGetPosition(this, out var point) || point.Y < 0) return;
-        var row = (int)(point.Y / TimelineMetrics.TrackHeight);
-        if (row >= _vm.Project.Tracks.Length) return;
+        var row = _vm.TrackIndexAt(point.Y);
+        if (row < 0) return;
         var track = _vm.Project.Tracks[row];
         var clip = HitClip(point);
-        _vm.Select(track.Id, clip?.Id);
+        _vm.Select(track.Id, clip?.Id, preserveGroup: clip is not null && _vm.IsClipSelected(clip.Id));
         ContextMenu = TimelineContextMenus.Clip(_vm, track.Id, clip, Frame(point.X));
         ContextMenu.Open(this);
     }

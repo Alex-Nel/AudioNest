@@ -2,18 +2,18 @@
 
 | Technical-document requirement | MVP status |
 |---|---|
-| Multitrack timeline with waveforms | Implemented; scroll, zoom, selection, clip dragging |
+| Multitrack timeline with waveforms | Implemented; grouped selection/dragging, rename, resizable tracks |
 | Split/delete/move shortcuts | Implemented; razor, edge trims, cut/copy/paste, and context menus |
 | Non-destructive editing | Implemented; shared sources and bounded undo/redo |
 | Clip, segment, and track effects | Gain/hard limiter; segments are independent split clips |
 | Noise reduction/compressor/normalizer/reverb/echo/distortion | Not implemented |
 | Independent pitch, tempo, speed | Not implemented |
 | VST 2.x / 3.x | Not implemented; ABI/licensing/isolation design still needed |
-| Microphone recording | Default mono input, finalized WAV imported as a clip |
+| Microphone recording | Default mono input, live waveform draft, finalized WAV imported as a clip |
 | Effects automatically applied while recording | Not implemented; raw capture preserved |
 | Save/open projects | Versioned JSON and portable sibling media folder |
-| Multiple formats/rates | WAV/MP3/FLAC import through MiniAudio; normalized to project rate |
-| Multiple output codecs | WAV PCM16 export only |
+| Multiple formats/rates | WAV/MP3/FLAC through MiniAudio; AAC/M4A/OGG through FFmpeg; normalized to project rate |
+| Multiple output codecs | Export options for WAV PCM16, MP3, AAC/ADTS, OGG/Vorbis, FLAC |
 | Avalonia / C# / four layers | Implemented |
 | Decoupled playhead | Device-frame transport clock plus independent UI overlay |
 | Ahead-of-time compilation possible | Windows x64 Native AOT verified; other RIDs pending |
@@ -26,8 +26,8 @@
      rendering, cancellation/progress, and session CPU/memory budgets.
    - Autosave/recovery, relinking, media cache management, project rename UI.
 2. **Editing ergonomics**
-   - Range selections, trim handles, fades/crossfades, snapping, ripple options,
-     copy/paste/duplicate, accessibility, and configurable shortcuts.
+   - Range selections, fades/crossfades, ripple options, duplicate, accessibility,
+     and configurable shortcuts; group clipboard/dragging, trims, and snapping exist.
 3. **DSP**
    - Block processor tails, pre-roll, latency compensation, meters, automation.
    - Compressor/normalizer, echo/reverb, noise profiling/reduction, distortion.
@@ -38,7 +38,8 @@
 5. **Plugins and formats**
    - Separate VST3 scanner/host process with crash recovery; revisit VST2 only after
      reviewing SDK availability and licensing.
-   - Optional FFmpeg codec adapter with packaging/license review.
+   - Codec quality/bitrate controls and per-platform codec acceptance; complete
+     release-specific FFmpeg source/relink packaging and license review.
 6. **Distribution**
    - Per-platform hardware acceptance and AOT smoke tests, installers, signing,
      microphone permission manifests, dependency notices, and update strategy.

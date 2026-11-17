@@ -36,7 +36,7 @@
                   ToolTip.Tip="Import audio (Ctrl/Cmd+I)" a:AutomationProperties.Name="Import audio">
             <PathIcon Data="{StaticResource IconImport}" />
           </Button>
-          <ToggleButton x:Name="SelectionToolButton" Classes="editorControl" IsChecked="{Binding IsSelectionTool, Mode=OneWay}" Command="{Binding SelectionTool}"
+          <ToggleButton x:Name="SelectionToolButton" Classes="editorControl" Margin="10,2,4,2" IsChecked="{Binding IsSelectionTool, Mode=OneWay}" Command="{Binding SelectionTool}"
                         ToolTip.Tip="Selection tool (V): move clips and trim edges" a:AutomationProperties.Name="Selection tool">
             <PathIcon Data="{StaticResource IconSelection}" />
           </ToggleButton>
@@ -44,15 +44,15 @@
                         ToolTip.Tip="Razor tool (C): split at the clicked frame" a:AutomationProperties.Name="Razor tool">
             <PathIcon Data="{StaticResource IconRazor}" />
           </ToggleButton>
-          <ToggleButton x:Name="SnapButton" Classes="editorControl" Content="Snap" IsChecked="{Binding IsSnappingEnabled}"
+          <ToggleButton x:Name="SnapButton" Classes="editorControl toolbarText" Margin="10,2,4,2" Content="Snap" IsChecked="{Binding IsSnappingEnabled}"
                         ToolTip.Tip="Snap clip edges (Alt bypasses clip snapping)" />
-          <Button x:Name="ZoomOutButton" Classes="editorControl" Click="ZoomOutClick" ToolTip.Tip="Zoom out around playhead" a:AutomationProperties.Name="Zoom out">
+          <Button x:Name="ZoomOutButton" Classes="editorControl" Margin="10,2,4,2" Click="ZoomOutClick" ToolTip.Tip="Zoom out around playhead" a:AutomationProperties.Name="Zoom out">
             <PathIcon Data="{StaticResource IconZoomOut}" />
           </Button>
           <Button x:Name="ZoomInButton" Classes="editorControl" Click="ZoomInClick" ToolTip.Tip="Zoom in around playhead" a:AutomationProperties.Name="Zoom in">
             <PathIcon Data="{StaticResource IconZoomIn}" />
           </Button>
-          <Button x:Name="FitButton" Classes="editorControl" Content="Fit" Click="FitClick" ToolTip.Tip="Fit project to available width" />
+          <Button x:Name="FitButton" Classes="editorControl toolbarText" Content="Fit" Click="FitClick" ToolTip.Tip="Fit project to available width" />
         </WrapPanel>
         <GridSplitter x:Name="MeterSplitter" Grid.Column="3" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource EditorBorder}"

@@ -1,6 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../AudioNest.Hardware/AudioNest.Hardware.csproj" />
     <PackageReference Include="SoundFlow" />
+    <PackageReference Include="SoundFlow.Codecs.FFMpeg" />
+    <Content Include="$(NuGetPackageRoot)soundflow.codecs.ffmpeg/1.4.2/LICENSE.md"
+             Link="licenses/SoundFlow-FFmpeg-LICENSE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(NuGetPackageRoot)soundflow.codecs.ffmpeg/1.4.2/SOUNDFLOW-THIRD-PARTY-NOTICES.txt"
+             Link="licenses/SOUNDFLOW-THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

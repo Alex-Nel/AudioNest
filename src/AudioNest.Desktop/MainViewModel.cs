@@ -28,8 +28,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private bool _isDarkMode;
     private float _outputPeak;
     private float _inputPeak;
-    private ClipClipboardItem? _clipboard;
-    private AudioBuffer? _clipboardBuffer;
+    private ClipClipboardGroup? _clipboard;
+    private readonly Dictionary<Guid, AudioBuffer> _clipboardBuffers = [];
+    private readonly HashSet<Guid> _selected = [];
+    private readonly Dictionary<Guid, double> _trackHeights = [];
     private TimelineTool _tool;
 
     public MainViewModel(ProjectSession session, AudioLibrary library, AudioTransport transport,
@@ -64,6 +66,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public AudioClip? SelectedClip => Project.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.Id == SelectedClipId);
     public AudioTrack? SelectedTrack => Project.Tracks.FirstOrDefault(t => t.Id == SelectedTrackId);
     public Guid? SelectedClipId { get; private set; }
+    public IReadOnlySet<Guid> SelectedClipIds => _selected;
+    public bool IsClipSelected(Guid id) => _selected.Contains(id);
     public Guid? SelectedTrackId { get; private set; }
     public long Position => _transport.Position;
     public bool IsDirty => _session.IsDirty;
@@ -89,7 +93,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string Title => $"{Project.Name}{(IsDirty ? " •" : "")} — AudioNest";
     public string Status => _status;
     public string SelectionStatus => SelectedClip is { } clip
-        ? $"{ProjectEdits.FindTrack(Project, clip.Id).Name}  ·  {clip.Name}" : "";
+        ? $"{(_selected.Count > 1 ? $"{_selected.Count} clips selected — " : "")}{ProjectEdits.FindTrack(Project, clip.Id).Name}  ·  {clip.Name}" : "";
     public string StatusBarText => SelectedClip is null ? Status :
         IsBusy || IsRecording || Status.StartsWith("Error:", StringComparison.Ordinal)
             ? $"{SelectionStatus} — {Status}" : SelectionStatus;
@@ -120,8 +124,42 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string TrackText => SelectedTrack is { } t
         ? $"{t.Name}{(t.Muted ? " · muted" : "")}{(t.Solo ? " · solo" : "")}" : "No track selected";
     public double PixelsPerSecond { get; private set; } = 90;
-    public double TimelineWidth => Math.Max(_timelineViewportWidth, ((double)Math.Max(Project.Duration, Position) / Project.SampleRate + 5) * PixelsPerSecond);
-    public double TimelineHeight => Math.Max(_timelineViewportHeight, Math.Max(1, Project.Tracks.Length) * TimelineMetrics.TrackHeight);
+    public RecordingSnapshot? LiveRecording { get; private set; }
+    public Guid RecordingTrackId => _recordingTrack;
+    public long RecordingStart => _recordingStart;
+    public double TimelineWidth => Math.Max(_timelineViewportWidth, ((double)Math.Max(Math.Max(Project.Duration, Position),
+        LiveRecording is null ? 0 : RecordingStart + LiveRecording.Frames) / Project.SampleRate + 5) * PixelsPerSecond);
+    public double TrackContentHeight => Project.Tracks.Sum(t => TrackHeight(t.Id));
+    public double TimelineHeight => Math.Max(_timelineViewportHeight, Math.Max(TimelineMetrics.TrackHeight, TrackContentHeight));
+    public double TrackHeight(Guid id) => _trackHeights.GetValueOrDefault(id, TimelineMetrics.TrackHeight);
+    public double TrackTop(int index) => Project.Tracks.Take(index).Sum(t => TrackHeight(t.Id));
+    public int TrackIndex(Guid id)
+    {
+        for (var i = 0; i < Project.Tracks.Length; i++) if (Project.Tracks[i].Id == id) return i;
+        return -1;
+    }
+    public int TrackIndexAt(double y)
+    {
+        if (y < 0) return -1;
+        for (var i = 0; i < Project.Tracks.Length; i++)
+        {
+            y -= TrackHeight(Project.Tracks[i].Id);
+            if (y < 0) return i;
+        }
+        return -1;
+    }
+    public void SetTrackHeight(Guid id, double height)
+    {
+        if (!double.IsFinite(height)) return;
+        _trackHeights[id] = Math.Clamp(height, TimelineMetrics.TrackHeight, TimelineMetrics.MaximumTrackHeight);
+        Notify();
+    }
+    public void RenameTrack(Guid id, string name)
+    {
+        name = name.Trim();
+        if (name.Length is < 1 or > 120) { ReportError(new ArgumentException("Track name must contain 1–120 characters.")); return; }
+        Edit("Rename track", p => ProjectEdits.UpdateTrack(p, id, t => t with { Name = name }));
+    }
     public AudioBuffer Buffer(Guid asset) => _library[asset];
     private PcmFormat Format => new(Project.SampleRate, 2);
 
@@ -139,7 +177,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void OnProjectChanged()
     {
         if (SelectedTrack is null) SelectedTrackId = Project.Tracks.FirstOrDefault()?.Id;
-        if (SelectedClip is null) SelectedClipId = null;
+        var valid = Project.Tracks.SelectMany(t => t.Clips).Select(c => c.Id).ToHashSet();
+        _selected.RemoveWhere(id => !valid.Contains(id));
+        if (SelectedClip is null) SelectedClipId = _selected.Cast<Guid?>().FirstOrDefault();
+        if (SelectedClipId is { } selected) SelectedTrackId = ProjectEdits.FindTrack(Project, selected).Id;
         SyncTrackHeaders();
         _transport.SetPlan(new RenderPlan(Project, id => _library[id]));
         Notify();
@@ -147,6 +188,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void Tick()
     {
+        if (IsRecording)
+        {
+            LiveRecording = _recording!.Preview.Snapshot();
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimelineWidth)));
+            TimelineChanged?.Invoke();
+        }
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PositionText)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlayLabel)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PositionFramesText)));
@@ -164,11 +211,22 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private static double MeterLevel(float peak) => peak <= 0 ? 0 : Math.Clamp((20 * Math.Log10(peak) + 60) / 60, 0, 1);
     private static string Decibels(float peak) => peak <= 0 ? "−∞ dBFS" : $"{20 * Math.Log10(peak):0.0} dBFS";
 
-    public void Select(Guid? track, Guid? clip)
+    public void Select(Guid? track, Guid? clip, bool additive = false, bool preserveGroup = false)
     {
         if (!CanEdit) return;
+        if (additive && clip is { } toggle)
+        {
+            if (!_selected.Add(toggle)) _selected.Remove(toggle);
+            clip = _selected.Contains(toggle) ? toggle : _selected.Cast<Guid?>().FirstOrDefault();
+        }
+        else if (!(preserveGroup && clip is { } existing && _selected.Contains(existing)))
+        {
+            _selected.Clear();
+            if (clip is { } id) _selected.Add(id);
+        }
         SelectedTrackId = track;
         SelectedClipId = clip;
+        if (clip is { } primary) SelectedTrackId = ProjectEdits.FindTrack(Project, primary).Id;
         Notify();
     }
 
@@ -231,38 +289,74 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void Copy()
     {
         if (!HasSelectedClip) return;
-        _clipboard = ClipClipboardItem.Capture(Project, SelectedClipId!.Value);
-        _clipboardBuffer = _library[_clipboard.Asset.Id];
-        _status = "Clip copied.";
+        _clipboard = ClipClipboardGroup.Capture(Project, _selected);
+        _clipboardBuffers.Clear();
+        foreach (var item in _clipboard.Clips) _clipboardBuffers[item.Item.Asset.Id] = _library[item.Item.Asset.Id];
+        _status = $"{_clipboard.Clips.Length} clip(s) copied.";
         Notify();
     }
     public void Cut() { if (HasSelectedClip) { Copy(); Delete(); } }
     public void Paste() => PasteAt(SelectedTrackId, Position);
     public void PasteAt(Guid? destination, long frame)
     {
-        if (!CanPaste || _clipboardBuffer is null) return;
-        var item = _clipboard!;
-        var existing = Project.Assets.FirstOrDefault(a => a == item.Asset);
-        var asset = existing ?? item.Asset with { Id = Guid.NewGuid() };
-        var track = destination ?? Project.Tracks.FirstOrDefault()?.Id ?? Guid.NewGuid();
-        var clip = item.Clip with { Id = Guid.NewGuid(), AssetId = asset.Id, Start = Math.Max(0, frame) };
-        _library.Add(asset.Id, _clipboardBuffer);
-        Edit("Paste clip", p =>
+        if (!CanPaste) return;
+        var group = _clipboard!;
+        var baseIndex = destination is { } dest ? TrackIndex(dest) : 0;
+        if (baseIndex < 0) baseIndex = Project.Tracks.Length;
+        var inserted = new List<Guid>();
+        var assets = new Dictionary<Guid, AudioAsset>();
+        foreach (var item in group.Clips)
         {
-            if (!p.Tracks.Any(t => t.Id == track)) p = p with { Tracks = p.Tracks.Add(new AudioTrack { Id = track, Name = $"Track {p.Tracks.Length + 1}" }) };
-            return ProjectEdits.InsertClip(p, asset, clip, track);
+            var source = item.Item.Asset;
+            if (assets.ContainsKey(source.Id)) continue;
+            var asset = Project.Assets.FirstOrDefault(a => a == source) ?? source with { Id = Guid.NewGuid() };
+            assets[source.Id] = asset;
+            _library.Add(asset.Id, _clipboardBuffers[source.Id]);
+        }
+        Edit("Paste clips", p =>
+        {
+            while (p.Tracks.Length < baseIndex + group.Layouts.Length)
+                p = ProjectEdits.AddTrack(p, group.Layouts[Math.Clamp(p.Tracks.Length - baseIndex, 0, group.Layouts.Length - 1)]);
+            foreach (var item in group.Clips)
+            {
+                var asset = assets[item.Item.Asset.Id];
+                var clip = item.Item.Clip with { Id = Guid.NewGuid(), AssetId = asset.Id, Start = checked(Math.Max(0, frame) + item.Item.Clip.Start - group.Origin) };
+                inserted.Add(clip.Id);
+                p = ProjectEdits.InsertClip(p, asset, clip, p.Tracks[baseIndex + item.TrackOffset].Id);
+            }
+            return p;
         });
-        if (Project.Tracks.Any(t => t.Clips.Any(c => c.Id == clip.Id))) Select(track, clip.Id);
+        _selected.Clear();
+        _selected.UnionWith(inserted.Where(id => Project.Tracks.Any(t => t.Clips.Any(c => c.Id == id))));
+        SelectedClipId = _selected.Cast<Guid?>().FirstOrDefault();
+        if (SelectedClipId is { } first) SelectedTrackId = ProjectEdits.FindTrack(Project, first).Id;
+        Notify();
     }
     public void DeleteTrack(Guid id) => Edit("Delete track", p => ProjectEdits.DeleteTrack(p, id));
     public void DeleteSelectedTrack() { if (SelectedTrackId is { } id) DeleteTrack(id); }
     public void Split() { if (SelectedClipId is { } id) Edit("Split clip", p => ProjectEdits.Split(p, id, Position)); }
-    public void Delete() { if (SelectedClipId is { } id) Edit("Delete clip", p => ProjectEdits.Delete(p, id)); }
-    public void Move(Guid clip, Guid track, long frame) => Edit("Move clip", p => ProjectEdits.Move(p, clip, track, frame));
-    public ClipSnap ResolveClipMove(AudioClip clip, long start, bool bypassSnapping = false) =>
-        IsSnappingEnabled && !bypassSnapping
-            ? ClipSnapping.Resolve(Project, clip, start, Position, (long)(TimelineMetrics.SnapPixels / PixelsPerSecond * Project.SampleRate))
-            : new ClipSnap(Math.Clamp(start, 0, long.MaxValue - clip.Length), null);
+    public void Delete() { if (_selected.Count > 0) { var ids = _selected.ToHashSet(); Edit("Delete clips", p => ProjectEdits.DeleteClips(p, ids)); } }
+    public AudioProject PreviewMove(Guid clip, Guid track, long frame)
+    {
+        var anchor = ProjectEdits.FindTrack(Project, clip);
+        var original = anchor.Clips.First(c => c.Id == clip);
+        var ids = _selected.Contains(clip) ? _selected : new HashSet<Guid> { clip };
+        return ProjectEdits.MoveClips(Project, ids, frame - original.Start,
+            TrackIndex(track) - TrackIndex(anchor.Id));
+    }
+    public void Move(Guid clip, Guid track, long frame) => Edit("Move clips", _ => PreviewMove(clip, track, frame));
+    public ClipSnap ResolveClipMove(AudioClip clip, long start, bool bypassSnapping = false)
+    {
+        var members = Project.Tracks.SelectMany(t => t.Clips).Where(c => _selected.Contains(clip.Id) ? _selected.Contains(c.Id) : c.Id == clip.Id).ToArray();
+        var minimum = clip.Start - members.Min(c => c.Start);
+        var maximum = long.MaxValue - (members.Max(c => c.End) - clip.Start);
+        start = Math.Clamp(start, minimum, maximum);
+        var snap = IsSnappingEnabled && !bypassSnapping
+            ? ClipSnapping.Resolve(Project, clip, start, Position, (long)(TimelineMetrics.SnapPixels / PixelsPerSecond * Project.SampleRate), _selected)
+            : new ClipSnap(start, null);
+        var bounded = Math.Clamp(snap.Start, minimum, maximum);
+        return bounded == snap.Start ? snap : new ClipSnap(bounded, null);
+    }
 
     public void ChangeTrackGain(Guid id, float decibels) => Edit("Track gain",
         p => ProjectEdits.UpdateTrack(p, id, t =>
@@ -282,7 +376,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return t with { Effects = t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0, new EffectSpec(EffectKind.Gain, clamped)) };
         }));
     public void SetTrackPan(Guid id, float pan) => Edit("Track stereo balance",
-        p => ProjectEdits.UpdateTrack(p, id, t => t with { Pan = Math.Clamp(pan, -1, 1) }));
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Pan = t.Layout == TrackChannelLayout.Mono ? 0 : Math.Clamp(pan, -1, 1) }));
     public void ToggleTrackMute(Guid id) => Edit("Toggle track mute",
         p => ProjectEdits.UpdateTrack(p, id, t => t with { Muted = !t.Muted }));
     public void ToggleTrackSolo(Guid id) => Edit("Toggle track solo",
@@ -351,7 +445,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         await RunAsync(async () =>
         {
             try { await Task.Run(recording.Stop); }
-            finally { _recording = null; _inputPeak = 0; }
+            finally { _recording = null; _inputPeak = 0; LiveRecording = null; }
             await ImportCoreAsync(path, track, at);
             _status = "Recording added. The original take is preserved.";
         });
@@ -371,6 +465,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _recordingTrack = SelectedTrackId!.Value;
             // Mono capture avoids assuming a stereo microphone; decode normalizes for the project.
             _recording = _backend.StartRecording(new PcmFormat(Project.SampleRate, 1), _recordingPath);
+            LiveRecording = _recording.Preview.Snapshot();
             _status = "Recording microphone. Press Stop to finish. Live monitoring is off.";
             Notify();
         }
@@ -452,14 +547,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     public string? ProjectPath => _projectPath;
 
-    public async Task ExportAsync(string path)
+    public async Task ExportAsync(string path, AudioFileFormat fileFormat = AudioFileFormat.Wav)
     {
         if (!CanEdit) return;
         await RunAsync(async () =>
         {
             var plan = new RenderPlan(Project, id => _library[id]);
-            await Task.Run(() => WaveExporter.Export(plan, path));
-            _status = "Stereo PCM16 WAV exported.";
+            await Task.Run(() => AudioExporter.Export(plan, path, fileFormat, _backend));
+            _status = $"{AudioFileType.For(fileFormat).Name} exported.";
         });
     }
 

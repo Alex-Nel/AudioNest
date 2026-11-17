@@ -56,9 +56,11 @@ internal sealed class FakeBackend : IAudioBackend
     public IAudioRecording StartRecording(PcmFormat format, string path, string? deviceId = null)
     {
         File.WriteAllText(path, "fake recording decoded by fake backend");
-        return Recording = new FakeRecording(() => RecordingStops++);
+        return Recording = new FakeRecording(() => RecordingStops++, format);
     }
     public void Dispose() { }
+    public IAudioFileEncoder OpenEncoder(string path, PcmFormat format, AudioFileFormat fileFormat) =>
+        throw new NotSupportedException("Fake backend only exports through the managed WAV writer.");
 
     public sealed class FakeOutput(RenderAudio render) : IAudioOutput
     {
@@ -73,10 +75,11 @@ internal sealed class FakeBackend : IAudioBackend
         }
         public void Dispose() => Stop();
     }
-    public sealed class FakeRecording(Action stop) : IAudioRecording
+    public sealed class FakeRecording(Action stop, PcmFormat format) : IAudioRecording
     {
         private bool _stopped;
         public AudioPeakMeter InputMeter { get; } = new();
+        public RecordingPreview Preview { get; } = new(format);
         public void Stop() { if (!_stopped) { _stopped = true; stop(); } }
         public void Dispose() => Stop();
     }

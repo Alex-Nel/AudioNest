@@ -164,7 +164,8 @@ public sealed class TimelineBehaviorTests
         header.ContextMenu.Close();
         Assert.Equal(TrackChannelLayout.Mono, vm.Project.Tracks[1].Layout);
         Click(window, header, new Point(80, 35), MouseButton.Right);
-        Assert.Null(header.ContextMenu);
+        Assert.Contains(header.ContextMenu!.Items.OfType<MenuItem>(), item => (string)item.Header! == "Rename track…");
+        header.ContextMenu.Close();
         Close(window, vm);
     }
 

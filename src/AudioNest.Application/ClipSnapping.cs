@@ -23,7 +23,8 @@ public static class ClipSnapping
         return best;
     }
 
-    public static ClipSnap Resolve(AudioProject project, AudioClip moving, long proposedStart, long playhead, long tolerance)
+    public static ClipSnap Resolve(AudioProject project, AudioClip moving, long proposedStart, long playhead, long tolerance,
+        IReadOnlySet<Guid>? ignore = null)
     {
         var start = Math.Clamp(proposedStart, 0, long.MaxValue - moving.Length);
         var bestStart = start;
@@ -46,7 +47,7 @@ public static class ClipSnapping
         Consider(playhead);
         foreach (var clip in project.Tracks.SelectMany(t => t.Clips))
         {
-            if (clip.Id == moving.Id) continue;
+            if (clip.Id == moving.Id || ignore?.Contains(clip.Id) == true) continue;
             Consider(clip.Start);
             Consider(clip.End);
         }

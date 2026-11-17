@@ -29,6 +29,7 @@ public interface IAudioOutput : IDisposable
 public interface IAudioRecording : IDisposable
 {
     AudioPeakMeter InputMeter { get; }
+    RecordingPreview Preview { get; }
     // Finalizes the output file and releases the input device.
     void Stop();
 }
@@ -40,4 +41,5 @@ public interface IAudioBackend : IDisposable
     IAudioOutput OpenOutput(PcmFormat format, RenderAudio render, string? deviceId = null);
     IAudioRecording StartRecording(PcmFormat format, string path, string? deviceId = null);
     DecodedAudio Decode(string path, PcmFormat targetFormat, CancellationToken cancellationToken = default);
+    IAudioFileEncoder OpenEncoder(string path, PcmFormat format, AudioFileFormat fileFormat);
 }

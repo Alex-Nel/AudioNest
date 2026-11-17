@@ -30,6 +30,9 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
     public bool IsMuted => Track.Muted;
     public bool IsSolo => Track.Solo;
     public bool CanEdit => _owner.CanEdit;
+    public bool CanPan => CanEdit && Track.Layout == TrackChannelLayout.Stereo;
+    public double Height => _owner.TrackHeight(Id);
+    public void Resize(double height) => _owner.SetTrackHeight(Id, height);
     public string GainText => $"{20 * Math.Log10(Math.Max(0.0001, Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1)):0.0} dB";
     public string PanText => Track.Pan == 0 ? "Center" : $"{(Track.Pan < 0 ? "L" : "R")} {Math.Abs(Track.Pan):P0}";
     public double Volume
@@ -38,7 +41,7 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
         set
         {
             if (!_owner.CanEdit || !double.IsFinite(value)) return;
-            value = Math.Clamp(value, 0, 2);
+            value = Math.Round(Math.Clamp(value, 0, 2) / 0.05, MidpointRounding.AwayFromZero) * 0.05;
             if (Math.Abs(value - Volume) < 0.00001) return;
             if (_previewVolume.HasValue) { _previewVolume = value; PreviewChanged(); }
             else _owner.SetTrackVolume(Id, (float)value);
@@ -46,11 +49,11 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
     }
     public double Pan
     {
-        get => _previewPan ?? Track.Pan;
+        get => Track.Layout == TrackChannelLayout.Mono ? 0 : _previewPan ?? Track.Pan;
         set
         {
-            if (!_owner.CanEdit || !double.IsFinite(value)) return;
-            value = Math.Clamp(value, -1, 1);
+            if (!CanPan || !double.IsFinite(value)) return;
+            value = Math.Round(Math.Clamp(value, -1, 1) / 0.05, MidpointRounding.AwayFromZero) * 0.05;
             if (Math.Abs(value - Pan) < 0.00001) return;
             if (_previewPan.HasValue) { _previewPan = value; PreviewChanged(); }
             else _owner.SetTrackPan(Id, (float)value);
@@ -60,7 +63,8 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
     public string VolumeHint => _previewVolume is null && (Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1) > 2
         ? "Saved gain exceeds 2×. Moving this slider sets a new volume within 0–2×."
         : "Volume: 0 is silence, 1 is original, 2 is twice the amplitude";
-    public string BalanceText => Math.Abs(Pan) < 0.001 ? "C" : $"{(Pan < 0 ? "L" : "R")} {Math.Abs(Pan):P0}";
+    public string BalanceText => Track.Layout == TrackChannelLayout.Mono ? "Mono" :
+        Math.Abs(Pan) < 0.001 ? "C" : $"{(Pan < 0 ? "L" : "R")} {Math.Abs(Pan):P0}";
     public UiCommand Mute { get; }
     public UiCommand Solo { get; }
     public UiCommand Delete { get; }

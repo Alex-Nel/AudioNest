@@ -5,6 +5,7 @@ public static class TimelineMetrics
 {
     public const double HeaderWidth = 228;
     public const double RulerHeight = 32;
-    public const double TrackHeight = 148;
+    public const double TrackHeight = 164;
+    public const double MaximumTrackHeight = 600;
     public const double SnapPixels = 8;
 }

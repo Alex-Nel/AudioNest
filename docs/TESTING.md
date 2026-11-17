@@ -7,8 +7,9 @@ dotnet test AudioNest.sln -c Release
 ```
 
 The suite uses a fake hardware backend for transport and recording tests and
-Avalonia Headless for desktop workflows. The `NativeCodec` test exercises actual
-SoundFlow WAV decoding/resampling but does not start a playback or capture device.
+Avalonia Headless for desktop workflows. `NativeCodec` tests exercise actual
+SoundFlow WAV decoding/resampling and all five export/import round trips without
+starting a playback or capture device.
 Test working media is isolated in per-test temporary directories.
 
 ```sh
@@ -25,7 +26,7 @@ Use disposable test material first:
 - Confirm maximized startup with normal OS decorations, and restore the window.
   Start the app with no default audio device: editing should still work; Play or
   Record should show an actionable error without crashing.
-- Import WAV/MP3/FLAC at 44.1/48/96 kHz. Confirm timing, channels, waveform, and
+- Import WAV/MP3/AAC/M4A/OGG/FLAC at 44.1/48/96 kHz. Confirm timing, channels, waveform, and
   correct speed/pitch after normalization.
 - Play multiple overlapping clips. Pause, resume, seek, restart at end, and stop.
   Check playback/export gain parity with a known reference signal.
@@ -51,11 +52,18 @@ Use disposable test material first:
   effects are independent of later edits, each paste has a fresh ID, and paste at
   the playhead still works after cutting the final clip. Try same-rate project
   changes, no-track paste, undo/redo, and saving the pasted result.
+- Left-Shift click clips across several tracks, toggle membership, then drag,
+  cut/copy/paste, delete, and undo each operation. Relative timing/track spacing
+  must survive, including movement against zero time and the first/last track.
+- Rename through an existing header's context menu, undo/redo, save/reopen.
+  Drag its bottom grip to the 164/600 px limits; verify all later headers, clips,
+  hit targets, and live recording drafts remain aligned when scrolled.
 - Right-click blank track space with/without clipboard content and verify only
   relevant paste/mute actions. Right-click blank header space to add stereo/mono
   tracks; it must not reuse that creation menu on existing track headers.
 - Compare stereo and mono with asymmetric and anti-phase test material: mono
-  should average channels, show the downmix envelope, and match WAV export.
+  should average channels, stay centered despite legacy saved pan, disable the
+  pan slider, show the downmix envelope, and match exports.
   Load a v1 project and confirm stereo defaults without changing the source file;
   save/reopen v2 mono projects.
 - Resize to 760–1500 px widths and vary height; confirm pinned track headers,
@@ -64,7 +72,8 @@ Use disposable test material first:
   verify native menu export, enabled/check states, and Cmd shortcuts physically.
 - Test each track's mute, volume (0 / 1 / 2×), pan slider, and delete button. A
   pointer slider drag should undo in one step, including interrupted capture.
-  Keyboard slider steps should work. Undo deletion,
+  Keyboard slider steps should work in 5% increments; thumbs should not clip.
+  Undo deletion,
   save/open balance, and compare stereo-channel results in playback/export.
 - Drag the inspector divider to both limits, shrink/restore the window, and
   verify remembered width and timeline/ruler alignment. Change clip selection and
@@ -76,6 +85,11 @@ Use disposable test material first:
 - Apply gain/limiter to one segment and its parent track. Check mute and solo.
 - Grant microphone permission. Record a short mono take, stop, listen, save,
   close, reopen, and export. Confirm recording has no monitoring feedback.
+  Watch the draft waveform grow before Stop; stopping replaces the draft with
+  exactly one imported clip, without retaining a duplicate.
+- Open File → Export…; choose destination with Browse or type it, change formats,
+  cancel, and confirm overwrites. Listen to WAV/MP3/AAC/OGG/FLAC outputs in an
+  independent player; check duration (allow lossy encoder padding), pitch, and channels.
 - Watch both toolbar meters with actual devices: timeline output should respond
   to playing clips (including mute/gain), and the mic meter should respond only
   during recording. Startup must not request microphone access. Check silence,

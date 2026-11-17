@@ -332,3 +332,66 @@ Further implementation and verification entries are appended below.
 - No physical recording/playback was started. Physical audio-device acceptance
   and non-Windows/native macOS menu checks remain manual.
 - `TODO.txt` was not modified. Existing work was preserved; no commits were created.
+
+## 2026-11-17 — Group editing, live recording, and export TODO
+
+- Read the latest TODO points; preserve the clean starting repository and retain
+  the four-layer boundaries.
+- Add left-Shift group selection/move/clipboard edits, clearer toolbar grouping/
+  labels/icons, 5% slider steps, track rename/height controls, export options and
+  additional codecs, live recording waveforms, and strict centered mono behavior.
+- Added SoundFlow.Codecs.FFMpeg 1.4.2 behind the hardware adapter for MP3/AAC/OGG/
+  FLAC encoding and AAC/OGG import. WAV retains the existing PCM16 writer; exports
+  use temporary-file publication and the same renderer as playback.
+- Added bounded, preallocated recording peak storage and UI snapshots using actual
+  captured frame counts. Audio callbacks retain no raw PCM for the live preview.
+- Mono tracks now ignore saved pan, and are recentered after track processing so
+  a mono track cannot produce unequal output channels.
+- Implemented left-Shift toggle selection, group outlines/drag previews, common
+  bounded time/track movement, and group delete/cut/copy/paste. Clipboard snapshots
+  retain independent metadata and shared PCM, preserve relative time/track offsets,
+  survive same-rate project changes, and create missing tracks in one paste edit.
+  Ordinary dragging/context menus preserve an existing selected group.
+- Replaced the razor geometry with a notched double-edge blade. Added toolbar
+  category spacing without lines, and centered Snap/Fit with smaller padding.
+- Volume/pan sliders snap to 0.05, retaining one undo step per pointer adjustment.
+  Reduced thumbs to 12 px with sufficient track-header space; mono pan is disabled.
+- Added undoable, persisted track renaming through the header context menu.
+  Track-height grips adjust session-only heights between 164 and 600 px; all
+  subsequent row drawing/hit testing uses the same dynamic geometry.
+- Replaced File → Export WAV with Export… and a destination/Browse/format dialog,
+  validation, and overwrite confirmation. Added WAV/MP3/AAC/M4A/OGG/OGA/FLAC import
+  filters. Export choices are WAV PCM16, MP3, AAC/ADTS, OGG/Vorbis, and FLAC.
+- The stock FFmpeg factory passes `aac` where FFmpeg requires `adts`. Added a small
+  source-generated native AAC encoder adapter, using the package's bundled native
+  ABI with no external executable. AAC/OGG decoding explicitly normalizes source
+  rate/channels. All five formats passed native non-silent round trips.
+- Updated README, architecture, feature status, hardware acceptance checks, and
+  dependency/license notes. Build/publish now includes the codec package's
+  unmodified license/notices under `licenses/`; release-specific LGPL source/
+  relinking compliance remains a documented packaging obligation.
+- Added `GroupAndRecordingTests` for actual Shift gestures and group clipboard
+  shortcuts/history, pure group clamping, rename dialog/save/open, multi-event
+  height dragging/alignment/minimum, stepped sliders/thumb bounds, legacy mono pan,
+  live recording draft/finalization, allocation-free envelope append, and export UI.
+  Regression testing exposed an untemplated resize thumb (not hit-testable); added
+  its visible template and made resizing robust to events before/after layout.
+- Project format remains v2; no new persisted fields or source-audio rewrites.
+  Startup remains maximized with normal window decorations, not fullscreen.
+
+### Verification and remaining acceptance
+
+- `dotnet test AudioNest.sln --configuration Release`: **67 passed, 0 failed,
+  0 skipped**; no build warnings/errors. Native codec cases open no audio devices.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git diff --check`: passed (Git's line-ending conversion notices only).
+- Windows x64 Native AOT publish succeeded without warnings. Native main-window
+  startup and normal close exited with **code 0**; no test process was retained.
+  The initial input-idle-only check was too early to observe the main window;
+  the subsequent process-lifetime/window/exit check verified startup explicitly.
+- Inspected light/dark editor, live recording draft, and export-options Skia
+  screenshots in ignored `tests/AudioNest.Tests/bin/Release/net10.0/ui-artifacts/`.
+- Physical playback/microphone capture, OS file-picker interaction, codecs inside
+  the AOT executable, independent-player listening checks, and non-Windows
+  deployment remain manual acceptance. Live preview tests use synthetic capture.
+- `TODO.txt` was left unchanged. No commits or pushes were created.

@@ -7,7 +7,7 @@ Desktop (Avalonia + explicit DI composition root)
   ├─ Application ── Domain
   ├─ Persistence ── Application / Domain
   ├─ Audio ──────── Domain + Hardware contracts
-  └─ Hardware.SoundFlow ── Hardware contracts + SoundFlow/MiniAudio
+  └─ Hardware.SoundFlow ── Hardware contracts + SoundFlow/MiniAudio/FFmpeg
 ```
 
 `Domain` and `Hardware` have no NuGet dependencies. Neither the domain nor the
@@ -45,7 +45,7 @@ bounded 1024-frame blocks:
 
 ```text
 source region → clip effect chain → track sum → track effect chain
-              → stereo balance → master sum → safety clamp → device / WAV exporter
+              → stereo balance → master sum → safety clamp → device / audio exporter
 ```
 
 Mute and solo are resolved during plan preparation. Clip/track chains preserve
@@ -84,7 +84,9 @@ Track slider drags keep a transient presentation preview and commit one metadata
 edit on release or capture loss; keyboard steps commit individually. Thus dragging
 does not fill the 200-edit history or mutate the audio graph on every mouse move.
 The volume slider is 0–2×, while pre-existing higher saved gains are left intact.
-Inspector width, zoom, theme, and snapping remain view state, not project fields.
+Both sliders quantize to 0.05. Inspector width, track heights (164–600 px), zoom,
+theme, and snapping remain view state, not project fields. Shared dynamic track
+geometry drives headers, waveforms, hit testing, draft clips, and drag previews.
 `ClipInspectorView` / `ClipInspectorViewModel` isolate metadata, ordered effect rows,
 and actions so future parameter editors need not be embedded in the window layout.
 
@@ -100,15 +102,19 @@ neighboring resize halos; short clips retain a movable center.
 
 Selection and razor tools are presentation state. Razor/context-menu split
 coordinates are translated to project frames and invoke the same pure split edit.
-Clipboard metadata (`ClipClipboardItem`) is immutable; the desktop retains the
-associated `AudioBuffer` separately. Paste resolves safe asset/clip identities,
-shares PCM, and creates any missing destination track within the same edit.
+Left-Shift toggles group membership; an ordinary drag on a selected clip preserves
+the group. `MoveClips` clamps a common time/track delta, preserving group offsets.
+Clipboard metadata (`ClipClipboardGroup` / `ClipClipboardItem`) is immutable; the
+desktop retains associated `AudioBuffer` objects separately. Group move/cut/paste
+each commit one edit. Paste resolves safe asset/clip identities, shares PCM, preserves
+relative time/track offsets, and creates missing destination tracks within that edit.
 The session clipboard is not an OS audio clipboard and requires a matching project
 clock. Graph rebuilds preserve the edit cursor, including after deleting the last clip.
 
 Track layouts are stereo by default. Mono tracks average normalized source L/R
 before clip effects, duplicate the mono signal into the stereo render bus, then
-apply track effects/balance normally. Assets are never converted destructively.
+apply track effects and recenter the result. Saved pan is ignored for mono, and
+its pan control is disabled. Assets are never converted destructively.
 `AudioBuffer` caches both source-envelope and mono-downmix peaks, so mono
 anti-phase cancellation is reflected in the waveform as well as playback/export.
 
@@ -140,8 +146,8 @@ promise that arbitrary stateful effects work without those additions.
 
 ## Hardware and recording
 
-`IAudioBackend` abstracts float PCM decoding, device discovery, output callbacks,
-and file-backed recording. Only `Hardware.SoundFlow` imports SoundFlow types.
+`IAudioBackend` abstracts float PCM decoding/encoding, device discovery, output
+callbacks, and file-backed recording. Only `Hardware.SoundFlow` imports SoundFlow types.
 Native initialization is lazy, allowing projects/UI to open without audio hardware.
 Current device selection uses defaults; adapter IDs are enumeration-scoped, not
 stable identifiers to persist.
@@ -152,6 +158,21 @@ file. Original captures remain available in the working-media folder on import
 failure. Capture currently delegates encoding to SoundFlow's stock recorder, which
 does work on its capture callback. Replace this with a preallocated bounded ring
 buffer plus background encoder before pursuing low-latency recording guarantees.
+
+`RecordingPreview` adds a single-producer fixed envelope (40 bins/second, up to
+ten minutes) and an atomic captured-frame count. Append does not allocate or lock;
+UI snapshots copy only published, immutable completed bins. A presentation-only
+recording draft grows from captured frames, not wall time, and disappears on Stop;
+only importing the finalized WAV adds an undoable project clip.
+
+WAV/MP3/FLAC imports retain MiniAudio decoding. AAC/M4A/OGG use the bundled
+`SoundFlow.Codecs.FFMpeg` 1.4.2 decoder with explicit rate/channel normalization.
+`AudioExporter` streams the shared renderer into `IAudioFileEncoder` for MP3,
+AAC/ADTS, OGG/Vorbis, and FLAC; WAV keeps the managed PCM16 writer. Temporary files
+are renamed only after successful finalization. `AacFileEncoder` uses source-generated
+native interop for the bundled wrapper's ADTS muxer: its stock factory incorrectly
+passes the codec name `aac` as a container. No external ffmpeg executable is needed.
+Native codec packaging and LGPL obligations are described in `DEPENDENCIES.md`.
 
 `AudioPeakMeter` transfers only peak amplitudes with atomic compare/exchange and
 read/reset operations; it performs no UI calls, allocation, locks, or sample

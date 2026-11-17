@@ -14,7 +14,7 @@
       <StreamGeometry x:Key="IconSpeaker">M2,9 H6 L12,4 V20 L6,15 H2 Z M15,7 L17,5 Q24,12 17,19 L15,17 Q20,12 15,7 Z</StreamGeometry>
       <StreamGeometry x:Key="IconMic">M8,5 A4,4 0 0 1 16,5 V12 A4,4 0 0 1 8,12 Z M5,11 H7 V12 A5,5 0 0 0 17,12 V11 H19 V12 A7,7 0 0 1 13,19 V21 H17 V23 H7 V21 H11 V19 A7,7 0 0 1 5,12 Z</StreamGeometry>
       <StreamGeometry x:Key="IconSelection">M4,2 V21 L9,16 L13,23 L16,21 L12,14 H20 Z</StreamGeometry>
-      <StreamGeometry x:Key="IconRazor">F0 M3,10 L14,1 L23,12 L12,23 Z M8,11 L14,6 L18,12 L12,17 Z M4,18 L7,15 L10,18 L7,21 Z</StreamGeometry>
+      <StreamGeometry x:Key="IconRazor">F0 M4,3 H20 V5 H22 V8 H20 V16 H22 V19 H20 V21 H4 V19 H2 V16 H4 V8 H2 V5 H4 Z M7,10 H10 V8 H14 V10 H17 V14 H14 V16 H10 V14 H7 Z</StreamGeometry>
       <StreamGeometry x:Key="IconImport">M10,2 H14 V12 L18,8 L21,11 L12,20 L3,11 L6,8 L10,12 Z M2,19 H5 V22 H19 V19 H22 V24 H2 Z</StreamGeometry>
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
@@ -66,6 +66,11 @@
       <Setter Property="Padding" Value="9" />
       <Setter Property="FontSize" Value="11" />
       <Setter Property="Margin" Value="0,2,4,2" />
+    </Style>
+    <Style Selector="Button.toolbarText, ToggleButton.toolbarText">
+      <Setter Property="Padding" Value="2" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="MenuItem.topLevel">
       <Setter Property="Padding" Value="8,1" />

@@ -98,6 +98,27 @@ public static class ProjectEdits
             t => t with { Clips = t.Clips.Add(clip with { Start = start }) });
     }
 
+    public static AudioProject DeleteClips(AudioProject project, IReadOnlySet<Guid> ids) => project with
+    {
+        Tracks = project.Tracks.Select(t => t with { Clips = t.Clips.RemoveAll(c => ids.Contains(c.Id)) }).ToImmutableArray()
+    };
+
+    public static AudioProject MoveClips(AudioProject project, IReadOnlySet<Guid> ids, long frameDelta, int trackDelta)
+    {
+        var selected = project.Tracks.SelectMany((t, i) => t.Clips.Where(c => ids.Contains(c.Id)).Select(c => (Clip: c, Track: i))).ToArray();
+        if (selected.Length == 0) return project;
+        frameDelta = Math.Clamp(frameDelta, -selected.Min(c => c.Clip.Start), long.MaxValue - selected.Max(c => c.Clip.End));
+        trackDelta = Math.Clamp(trackDelta, -selected.Min(c => c.Track), project.Tracks.Length - 1 - selected.Max(c => c.Track));
+        if (frameDelta == 0 && trackDelta == 0) return project;
+        var tracks = project.Tracks.Select(t => t with { Clips = t.Clips.RemoveAll(c => ids.Contains(c.Id)) }).ToArray();
+        foreach (var item in selected)
+        {
+            var i = item.Track + trackDelta;
+            tracks[i] = tracks[i] with { Clips = tracks[i].Clips.Add(item.Clip with { Start = item.Clip.Start + frameDelta }) };
+        }
+        return project with { Tracks = tracks.ToImmutableArray() };
+    }
+
     private static int FindIndex<T>(this ImmutableArray<T> items, Func<T, bool> predicate)
     {
         for (var i = 0; i < items.Length; i++)

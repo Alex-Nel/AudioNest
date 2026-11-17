@@ -12,6 +12,12 @@ public partial class TrackHeaderView : UserControl
         InitializeComponent();
         WireSlider(VolumeSlider, true);
         WireSlider(PanSlider, false);
+        TrackResizeGrip.DragDelta += (_, e) =>
+        {
+            if (DataContext is not TrackHeaderViewModel track) return;
+            // Thumb deltas are relative to its current layout, not the last event.
+            track.Resize(Bounds.Height + e.Vector.Y);
+        };
     }
     private void WireSlider(Slider slider, bool volume)
     {

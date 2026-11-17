@@ -6,6 +6,9 @@ using SoundFlow.Backends.MiniAudio;
 using SoundFlow.Components;
 using SoundFlow.Enums;
 using SoundFlow.Structs;
+using SoundFlow.Codecs.FFMpeg;
+using SoundFlow.Interfaces;
+using SoundFlow.Utils;
 
 namespace AudioNest.Hardware.SoundFlow;
 
@@ -74,7 +77,8 @@ public sealed class SoundFlowBackend : IAudioBackend
     {
         var device = Engine.InitializeCaptureDevice(Select(true, deviceId), Convert(format));
         var meter = new AudioPeakMeter();
-        AudioProcessCallback observe = (samples, _) => meter.Measure(samples);
+        var preview = new RecordingPreview(format);
+        AudioProcessCallback observe = (samples, _) => { meter.Measure(samples); preview.Append(samples); };
         Recorder? recorder = null;
         try
         {
@@ -83,7 +87,7 @@ public sealed class SoundFlowBackend : IAudioBackend
             var result = recorder.StartRecording();
             if (result.IsFailure) throw new IOException($"Cannot start recording: {result.Error}");
             device.Start();
-            return new Recording(device, recorder, meter, observe);
+            return new Recording(device, recorder, meter, preview, observe);
         }
         catch
         {
@@ -97,10 +101,17 @@ public sealed class SoundFlowBackend : IAudioBackend
     public DecodedAudio Decode(string path, PcmFormat targetFormat, CancellationToken cancellationToken = default)
     {
         using var stream = File.OpenRead(path);
-        using var decoder = Engine.CreateDecoder(stream, out _, Convert(targetFormat));
+        var extension = Path.GetExtension(path).TrimStart('.').ToLowerInvariant();
+        var ffmpeg = extension is "aac" or "ogg" or "m4a" or "oga";
+        using var decoder = ffmpeg
+            ? new FFmpegCodecFactory().CreateDecoder(stream, extension == "oga" ? "ogg" : extension, Convert(targetFormat))
+                ?? throw new NotSupportedException("Unsupported audio format.")
+            : Engine.CreateDecoder(stream, out _, Convert(targetFormat));
+        if (decoder.Channels is < 1 or > 2 || decoder.SampleRate <= 0)
+            throw new NotSupportedException("Only mono and stereo sources are currently supported.");
         var samples = new List<float>();
-        var block = new float[16384];
-        var limit = checked(targetFormat.SampleRate * targetFormat.Channels * MaximumAssetSeconds);
+        var block = new float[8192 * decoder.Channels];
+        var limit = checked(decoder.SampleRate * decoder.Channels * MaximumAssetSeconds);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -112,7 +123,44 @@ public sealed class SoundFlowBackend : IAudioBackend
             for (var i = 0; i < count; i++) samples.Add(block[i]);
         }
         if (samples.Count == 0) throw new InvalidDataException("The file contains no decodable audio.");
-        return new DecodedAudio(targetFormat, samples.ToArray());
+        var data = samples.ToArray();
+        if (decoder.SampleRate != targetFormat.SampleRate)
+            data = MathHelper.ResampleLinear(data, decoder.Channels, decoder.SampleRate, targetFormat.SampleRate);
+        if (decoder.Channels != targetFormat.Channels)
+        {
+            var converted = new float[data.Length / decoder.Channels * targetFormat.Channels];
+            for (var frame = 0; frame < data.Length / decoder.Channels; frame++)
+                for (var ch = 0; ch < targetFormat.Channels; ch++)
+                    converted[frame * targetFormat.Channels + ch] = decoder.Channels == 1 ? data[frame]
+                        : data[frame * 2] * 0.5f + data[frame * 2 + 1] * 0.5f;
+            data = converted;
+        }
+        return new DecodedAudio(targetFormat, data);
+    }
+
+    public IAudioFileEncoder OpenEncoder(string path, PcmFormat format, AudioFileFormat fileFormat)
+    {
+        var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+        try
+        {
+            if (fileFormat == AudioFileFormat.Aac) return new AacFileEncoder(stream, format);
+            var encoder = new FFmpegCodecFactory().CreateEncoder(stream, AudioFileType.For(fileFormat).Extension, Convert(format))
+                ?? throw new NotSupportedException("Encoder is not available.");
+            return new FileEncoder(stream, encoder);
+        }
+        catch { stream.Dispose(); throw; }
+    }
+    private sealed class FileEncoder(FileStream stream, ISoundEncoder encoder) : IAudioFileEncoder
+    {
+        public void Write(Span<float> samples)
+        {
+            if (encoder.Encode(samples) != samples.Length) throw new IOException("Encoder did not consume the entire audio block.");
+        }
+        public void Dispose()
+        {
+            try { encoder.Dispose(); stream.Flush(true); }
+            finally { stream.Dispose(); }
+        }
     }
 
     public void Dispose()
@@ -145,11 +193,12 @@ public sealed class SoundFlowBackend : IAudioBackend
         }
     }
 
-    private sealed class Recording(AudioCaptureDevice device, Recorder recorder, AudioPeakMeter meter,
+    private sealed class Recording(AudioCaptureDevice device, Recorder recorder, AudioPeakMeter meter, RecordingPreview preview,
         AudioProcessCallback observe) : IAudioRecording
     {
         private bool _stopped;
         public AudioPeakMeter InputMeter => meter;
+        public RecordingPreview Preview => preview;
         public void Stop()
         {
             if (_stopped) return;

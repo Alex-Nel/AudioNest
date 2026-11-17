@@ -16,7 +16,7 @@ public static class TimelineContextMenus
     public static ContextMenu Clip(MainViewModel vm, Guid track, AudioClip? clip, long frame)
     {
         var menu = new ContextMenu();
-        void Select() => vm.Select(track, clip?.Id);
+        void Select() => vm.Select(track, clip?.Id, preserveGroup: clip is not null && vm.IsClipSelected(clip.Id));
         if (clip is not null)
         {
             menu.Items.Add(Item("Cut", () => { Select(); vm.Cut(); }, () => vm.CanEdit));

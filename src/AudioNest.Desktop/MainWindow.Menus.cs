@@ -60,7 +60,7 @@ public partial class MainWindow
         AsyncItem(file, "Save as…", () => SaveAsync(true), Editable, $"{modifier}+Shift+S");
         Separate(file);
         AsyncItem(file, "Import audio…", ImportAudioAsync, Editable, $"{modifier}+I");
-        AsyncItem(file, "Export WAV…", ExportAudioAsync, Editable);
+        AsyncItem(file, "Export…", ExportAudioAsync, Editable);
         Separate(file);
         Item(file, "Close window", Close, () => !_vm.IsBusy);
 
