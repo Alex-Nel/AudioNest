@@ -1,14 +1,53 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="AudioNest.Desktop.App" RequestedThemeVariant="Dark">
+             x:Class="AudioNest.Desktop.App" RequestedThemeVariant="Light">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="EditorBackground">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorPanel">#F5F5F5</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorBorder">#D9D9D9</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorText">#202124</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorMuted">#666A70</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorSelected">#E6EFF8</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorAccent">#2864A0</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="EditorBackground">#202124</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorPanel">#292A2D</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorBorder">#45474B</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorText">#F0F0F0</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorMuted">#B4B7BE</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorSelected">#33475B</SolidColorBrush>
+          <SolidColorBrush x:Key="EditorAccent">#8CBDFA</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme />
     <Style Selector="Button">
-      <Setter Property="CornerRadius" Value="5" />
-      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="MinHeight" Value="28" />
+    </Style>
+    <Style Selector="ToggleButton">
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="MinHeight" Value="28" />
+    </Style>
+    <Style Selector="Button.track, ToggleButton.track">
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="FontSize" Value="11" />
+    </Style>
+    <Style Selector="Button.transport">
+      <Setter Property="MinWidth" Value="58" />
+      <Setter Property="Height" Value="32" />
     </Style>
     <Style Selector="TextBlock.section">
-      <Setter Property="Foreground" Value="#88A69F" />
+      <Setter Property="Foreground" Value="{DynamicResource EditorMuted}" />
       <Setter Property="FontSize" Value="11" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>

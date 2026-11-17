@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.ComponentModel;
+using System.Collections.ObjectModel;
 using AudioNest.Application;
 using AudioNest.Audio;
 using AudioNest.Domain;
@@ -21,6 +22,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private string? _projectPath;
     private string _status = "Ready. Import audio or record your first take.";
     private readonly string _workspace;
+    private double _timelineViewportWidth = 600;
+    private double _timelineViewportHeight = 300;
+    private bool _isSnappingEnabled = true;
+    private bool _isDarkMode;
 
     public MainViewModel(ProjectSession session, AudioLibrary library, AudioTransport transport,
         IAudioBackend backend, IProjectStore store, string? workspace = null)
@@ -39,6 +44,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action? TimelineChanged;
     public event Action? ClockChanged;
+    public ObservableCollection<TrackHeaderViewModel> TrackHeaders { get; } = [];
     public AudioProject Project => _session.Project;
     public AudioClip? SelectedClip => Project.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.Id == SelectedClipId);
     public AudioTrack? SelectedTrack => Project.Tracks.FirstOrDefault(t => t.Id == SelectedTrackId);
@@ -51,11 +57,34 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool CanEdit => !IsBusy && !IsRecording;
     public bool CanUndo => CanEdit && _session.CanUndo;
     public bool CanRedo => CanEdit && _session.CanRedo;
+    public bool CanPlay => CanEdit && !_transport.IsPlaying && Project.Duration > 0;
+    public bool CanPause => CanEdit && _transport.IsPlaying;
+    public bool HasSelectedClip => CanEdit && SelectedClip is not null;
+    public bool HasSelectedTrack => CanEdit && SelectedTrack is not null;
+    public bool IsSnappingEnabled
+    {
+        get => _isSnappingEnabled;
+        set { if (_isSnappingEnabled != value) { _isSnappingEnabled = value; Notify(); } }
+    }
+    public bool IsDarkMode
+    {
+        get => _isDarkMode;
+        set { if (_isDarkMode != value) { _isDarkMode = value; Notify(); } }
+    }
     public string Title => $"{Project.Name}{(IsDirty ? " •" : "")} — AudioNest";
     public string Status => _status;
     public string PlayLabel => _transport.IsPlaying ? "Pause" : "Play";
     public string RecordLabel => IsRecording ? "Recording…" : "● Record";
-    public string PositionText => TimeSpan.FromSeconds((double)Position / Project.SampleRate).ToString(@"hh\:mm\:ss\.fff");
+    public string PositionText
+    {
+        get
+        {
+            var whole = Position / Project.SampleRate;
+            var micros = Position % Project.SampleRate * 1_000_000 / Project.SampleRate;
+            return $"{whole / 3600:00}:{whole / 60 % 60:00}:{whole % 60:00}.{micros:000000}";
+        }
+    }
+    public string PositionFramesText => $"Frame {Position:N0}";
     public string ProjectInfo => $"{Project.Tracks.Length} tracks  /  {Project.SampleRate:N0} Hz  /  Stereo";
     public string SelectionText => SelectedClip is { } c
         ? $"{c.Name}\nStart: {(double)c.Start / Project.SampleRate:0.000} s\nLength: {(double)c.Length / Project.SampleRate:0.000} s\nSource in: {(double)c.SourceOffset / Project.SampleRate:0.000} s"
@@ -63,8 +92,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string TrackText => SelectedTrack is { } t
         ? $"{t.Name}{(t.Muted ? " · muted" : "")}{(t.Solo ? " · solo" : "")}" : "No track selected";
     public double PixelsPerSecond { get; private set; } = 90;
-    public double TimelineWidth => Math.Max(1100, 180 + ((double)Project.Duration / Project.SampleRate + 5) * PixelsPerSecond);
-    public double TimelineHeight => Math.Max(400, 36 + Project.Tracks.Length * 112);
+    public double TimelineWidth => Math.Max(_timelineViewportWidth, ((double)Project.Duration / Project.SampleRate + 5) * PixelsPerSecond);
+    public double TimelineHeight => Math.Max(_timelineViewportHeight, Math.Max(1, Project.Tracks.Length) * TimelineMetrics.TrackHeight);
     public AudioBuffer Buffer(Guid asset) => _library[asset];
     private PcmFormat Format => new(Project.SampleRate, 2);
 
@@ -73,12 +102,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
         TimelineChanged?.Invoke();
         ClockChanged?.Invoke();
+        foreach (var track in TrackHeaders) track.Refresh();
     }
 
     private void OnProjectChanged()
     {
         if (SelectedTrack is null) SelectedTrackId = Project.Tracks.FirstOrDefault()?.Id;
         if (SelectedClip is null) SelectedClipId = null;
+        SyncTrackHeaders();
         _transport.SetPlan(new RenderPlan(Project, id => _library[id]));
         Notify();
     }
@@ -87,6 +118,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PositionText)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlayLabel)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PositionFramesText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanPlay)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanPause)));
         ClockChanged?.Invoke();
     }
 
@@ -99,9 +133,27 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public void Seek(long frame) { if (CanEdit) { _transport.Seek(frame); Notify(); } }
+    public void SetTimelineViewportWidth(double width)
+    {
+        if (!double.IsFinite(width) || width <= 0 || Math.Abs(width - _timelineViewportWidth) < 0.5) return;
+        _timelineViewportWidth = width;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimelineWidth)));
+    }
+    public void SetTimelineViewportHeight(double height)
+    {
+        if (!double.IsFinite(height) || height <= 0 || Math.Abs(height - _timelineViewportHeight) < 0.5) return;
+        _timelineViewportHeight = height;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimelineHeight)));
+    }
+    public void FitProject()
+    {
+        PixelsPerSecond = Math.Clamp(Math.Max(1, _timelineViewportWidth - 1) /
+            ((double)Project.Duration / Project.SampleRate + 5), 0.1, 800);
+        Notify();
+    }
     public void Zoom(double multiplier)
     {
-        PixelsPerSecond = Math.Clamp(PixelsPerSecond * multiplier, 10, 800);
+        PixelsPerSecond = Math.Clamp(PixelsPerSecond * multiplier, 0.1, 800);
         Notify();
     }
 
@@ -119,9 +171,32 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public void AddTrack() => Edit("Add track", ProjectEdits.AddTrack);
+    public void DeleteTrack(Guid id) => Edit("Delete track", p => ProjectEdits.DeleteTrack(p, id));
+    public void DeleteSelectedTrack() { if (SelectedTrackId is { } id) DeleteTrack(id); }
     public void Split() { if (SelectedClipId is { } id) Edit("Split clip", p => ProjectEdits.Split(p, id, Position)); }
     public void Delete() { if (SelectedClipId is { } id) Edit("Delete clip", p => ProjectEdits.Delete(p, id)); }
     public void Move(Guid clip, Guid track, long frame) => Edit("Move clip", p => ProjectEdits.Move(p, clip, track, frame));
+    public ClipSnap ResolveClipMove(AudioClip clip, long start, bool bypassSnapping = false) =>
+        IsSnappingEnabled && !bypassSnapping
+            ? ClipSnapping.Resolve(Project, clip, start, Position, (long)(TimelineMetrics.SnapPixels / PixelsPerSecond * Project.SampleRate))
+            : new ClipSnap(Math.Clamp(start, 0, long.MaxValue - clip.Length), null);
+
+    public void ChangeTrackGain(Guid id, float decibels) => Edit("Track gain",
+        p => ProjectEdits.UpdateTrack(p, id, t =>
+        {
+            var gain = t.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1;
+            return t with
+            {
+                Effects = t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0,
+                    new EffectSpec(EffectKind.Gain, Math.Clamp(gain * MathF.Pow(10, decibels / 20), 0, 16)))
+            };
+        }));
+    public void SetTrackPan(Guid id, float pan) => Edit("Track stereo balance",
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Pan = Math.Clamp(pan, -1, 1) }));
+    public void ToggleTrackMute(Guid id) => Edit("Toggle track mute",
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Muted = !t.Muted }));
+    public void ToggleTrackSolo(Guid id) => Edit("Toggle track solo",
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Solo = !t.Solo }));
     public void Nudge(double seconds)
     {
         if (SelectedClip is { } c && SelectedTrackId is { } track)
@@ -170,6 +245,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         try { if (_transport.IsPlaying) _transport.Pause(); else _transport.Play(); Notify(); }
         catch (Exception ex) { ReportError(ex); }
     }
+    public void StartPlayback() { if (CanPlay) Play(); }
+    public void Pause() { if (CanEdit) { _transport.Pause(); Notify(); } }
+    public void SkipToStart() => Seek(0);
+    public void SkipToEnd() => Seek(Project.Duration);
 
     public async Task StopAsync()
     {
@@ -307,6 +386,19 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         _status = $"Error: {ex.Message}";
         Notify();
+    }
+
+    private void SyncTrackHeaders()
+    {
+        for (var i = TrackHeaders.Count - 1; i >= 0; i--)
+            if (!Project.Tracks.Any(t => t.Id == TrackHeaders[i].Id)) TrackHeaders.RemoveAt(i);
+        for (var i = 0; i < Project.Tracks.Length; i++)
+        {
+            var track = Project.Tracks[i];
+            var existing = TrackHeaders.FirstOrDefault(t => t.Id == track.Id);
+            if (existing is null) TrackHeaders.Insert(i, new TrackHeaderViewModel(this, track.Id));
+            else if (TrackHeaders.IndexOf(existing) != i) TrackHeaders.Move(TrackHeaders.IndexOf(existing), i);
+        }
     }
 
     public void Dispose()

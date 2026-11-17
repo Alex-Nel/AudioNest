@@ -8,6 +8,23 @@ namespace AudioNest.Tests;
 
 public sealed class AudioTests
 {
+    [Theory]
+    [InlineData(-1, 0.25f, 0)]
+    [InlineData(0, 0.25f, 0.25f)]
+    [InlineData(1, 0, 0.25f)]
+    [InlineData(0.5f, 0.125f, 0.25f)]
+    public void TrackBalanceAffectsBothPlaybackAndExportGraph(float pan, float left, float right)
+    {
+        var project = TestProjects.Create();
+        project = project with { Tracks = [project.Tracks[0] with { Pan = pan }] };
+        var output = new float[2];
+        new RenderPlan(project, _ => TestProjects.Buffer()).Render(0, output);
+        Assert.Equal(left, output[0]);
+        Assert.Equal(right, output[1]);
+        Assert.Throws<InvalidDataException>(() =>
+            (project with { Tracks = [project.Tracks[0] with { Pan = float.NaN }] }).Validate());
+    }
+
     [Fact]
     public void RenderUsesPreparedScratchWithoutManagedAllocations()
     {

@@ -117,3 +117,74 @@ Further implementation and verification entries are appended below.
 - Not verified locally: physical microphone/speaker I/O, unplug/dropout handling,
   macOS/Linux execution, non-Windows AOT, long-session stress, or advanced features
   explicitly deferred in `docs/ROADMAP.md`. No physical capture/playback was started.
+
+## 2026-11-16 — UI TODO implementation
+
+- Read all nine items in root `TODO.txt`. Preserve the pre-existing user change to
+  `.gitignore`; do not modify the TODO source document.
+- Add neutral light/dark presentation, sharper corners, responsive/pinned timeline
+  layout, shared in-window/native menus, explicit transport controls, per-track
+  controls, magnetic snapping, ruler-only cursor gestures, and a compact clock bar.
+- Added undoable track deletion and persisted stereo balance (`Pan`, default zero,
+  additive/backward-compatible with version-1 projects). Rendering/export applies
+  balance after track effects, preserving unity gain at the center.
+- Added frame-based clip-start/clip-end snapping to the playhead and other clips.
+  Snapping remains a presentation preference, not persisted project metadata.
+- Added explicit play/pause/start/end transport actions, microsecond display plus
+  exact frame count, viewport-based sizing, and stable per-track presentation state.
+- Cursor seeking now permits silent timeline space for placing future imports/
+  recordings; seeking past the end during playback pauses there instead of restarting.
+- Replaced the green/dark shell with neutral light resources and optional dark
+  resources; common button corners are now 2 px.
+- Split clip canvas, pinned time ruler, real track-header controls, and playhead
+  overlay. Shared row metrics and viewport sizing replace fixed minimum widths.
+  A fixed horizontal scrollbar keeps long sessions navigable at any vertical offset.
+- Added clip-edge snap previews/guides with an 8-pixel zoom-independent tolerance
+  and Alt bypass. Only ruler pointer gestures seek; clip/header clicks do not.
+- Added File/Edit/Effects/Tools/Help from shared commands, with macOS native menu
+  export and in-window fallback, plus help dialogs and live enabled/check states.
+- Added pointer-driven headless tests for ruler scrubbing and clip dragging,
+  actual track-button interaction, deletion/undo/save/open, theme/menu state,
+  resizing/scroll alignment, snap preferences/bypass, transport/status precision,
+  pure snap selection, and stereo-balance rendering.
+- The first Release build of the redesigned UI completed with zero warnings/errors.
+- All 34 initial regression cases passed. Inspected light/dark Skia captures,
+  corrected a horizontally scrolled empty-state label, and added populated editor
+  captures plus further actual snap/Alt-drag and pinned vertical-layout checks.
+- Updated README, architecture, and testing guidance for menus, themes, controls,
+  snapping, ruler-only seeking, stereo-balance semantics, and responsive layout.
+- Final populated light/dark review corrected selected-header style precedence and
+  ensured alternate track backgrounds do not hide the time grid. Screenshot
+  artifacts are generated under ignored test build output, not project source.
+
+### TODO completion and verification
+
+1. Neutral white/light UI; optional dark mode in Tools.
+2. Sharper rounded corners (2 px).
+3. Viewport-responsive timeline, pinned headers/ruler, fixed horizontal navigation,
+   fit-to-project, and a compact-window inspector policy.
+4. Shared File/Edit/Effects/Tools/Help commands with in-window menus and macOS
+   native menu export/fallback.
+5. Toolbar with distinct play, pause, stop, backward/start, forward/end, and record.
+6. Real per-track mute, gain, L/C/R stereo-balance, and undoable delete controls.
+7. Toggleable edge-to-playhead/edge-to-edge snapping with preview and Alt bypass.
+8. Pointer seeking restricted to the time ruler, including captured drag gestures.
+9. Compact live status bar with six-decimal time and exact frame index.
+
+- Final `dotnet test AudioNest.sln --configuration Release`: **35 passed,
+  0 failed, 0 skipped**; compilation produced no warnings/errors.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git diff --check`: passed (Git emits existing LF/CRLF conversion notices).
+- Windows x64 Native AOT publish succeeded against the final UI code, without
+  warnings. One concurrent test/publish restore collided on the shared assets
+  file (`NETSDK1047`); rerunning publish in isolation with a forced restore passed.
+  No source/configuration workaround was needed.
+- Final native executable started, accepted a normal close request, and exited
+  with code 0. No physical microphone/speaker I/O was started.
+- Light/dark populated UI captures were inspected. Headless pointer tests also
+  verify ruler scrubbing, preserving the playhead during clip dragging, actual
+  snapping/Alt bypass, real track-button activation, resizing, and scroll alignment.
+- macOS native menu appearance/export and non-Windows execution remain manual
+  platform checks; native-menu code is implemented but not claimed as Mac-tested.
+- Kept `TODO.txt` unchanged, preserved the user's pre-existing `.gitignore` change,
+  and created no commits.

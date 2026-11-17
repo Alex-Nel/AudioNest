@@ -9,6 +9,12 @@ public static class ProjectEdits
     public static AudioProject AddTrack(AudioProject project) =>
         project with { Tracks = project.Tracks.Add(new AudioTrack { Name = $"Track {project.Tracks.Length + 1}" }) };
 
+    public static AudioProject DeleteTrack(AudioProject project, Guid id)
+    {
+        if (!project.Tracks.Any(t => t.Id == id)) throw new ArgumentException("Track not found.", nameof(id));
+        return project with { Tracks = project.Tracks.RemoveAll(t => t.Id == id) };
+    }
+
     public static AudioProject UpdateTrack(AudioProject project, Guid id, Func<AudioTrack, AudioTrack> edit)
     {
         var index = project.Tracks.FindIndex(t => t.Id == id);

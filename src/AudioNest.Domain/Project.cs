@@ -33,7 +33,7 @@ public sealed record AudioProject
         foreach (var track in Tracks)
         {
             if (track is null || track.Id == Guid.Empty || !ids.Add(track.Id) || string.IsNullOrWhiteSpace(track.Name) ||
-                track.Clips.IsDefault)
+                track.Clips.IsDefault || !float.IsFinite(track.Pan) || track.Pan is < -1 or > 1)
                 throw new InvalidDataException("Invalid or duplicate track.");
             ValidateEffects(track.Effects);
             foreach (var clip in track.Clips)
@@ -75,6 +75,8 @@ public sealed record AudioTrack
     public string Name { get; init; } = "Audio track";
     public bool Muted { get; init; }
     public bool Solo { get; init; }
+    // Stereo balance: -1 is left, 0 preserves both channels, +1 is right.
+    public float Pan { get; init; }
     public ImmutableArray<EffectSpec> Effects { get; init; } = [];
     public ImmutableArray<AudioClip> Clips { get; init; } = [];
 }

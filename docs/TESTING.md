@@ -30,6 +30,18 @@ Use disposable test material first:
   Check playback/export gain parity with a known reference signal.
 - Split a clip twice, remove its middle segment, drag across tracks, undo/redo.
   Confirm the original source is unchanged.
+- Click/drag only the ruler to seek, including dragging outside it while captured.
+  Clip selection/movement and track-header buttons must not move the playhead.
+- Toggle Snap, align both clip edges to the cursor/other clips at different zoom
+  levels, and hold Alt to bypass. Undo a drag in one operation.
+- Resize to 760–1500 px widths and vary height; confirm pinned track headers,
+  ruler/clip horizontal alignment, fixed horizontal scrollbar, and inspector hiding.
+- Toggle light/dark mode and operate File/Edit/Effects/Tools/Help. On macOS,
+  verify native menu export, enabled/check states, and Cmd shortcuts physically.
+- Test each track's mute, volume, L/C/R balance, and delete buttons. Undo deletion,
+  save/open balance, and compare stereo-channel results in playback/export.
+- Confirm separate Play and Pause buttons, skip-to-start/end, and live status-bar
+  microsecond time/exact frame count while playing and seeking.
 - Apply gain/limiter to one segment and its parent track. Check mute and solo.
 - Grant microphone permission. Record a short mono take, stop, listen, save,
   close, reopen, and export. Confirm recording has no monitoring feedback.

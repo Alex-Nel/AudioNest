@@ -56,8 +56,8 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
         var resume = IsPlaying;
         Pause();
         _plan?.Reset();
-        Interlocked.Exchange(ref _position, Math.Clamp(frame, 0, _plan?.Duration ?? long.MaxValue));
-        if (resume) Play();
+        Interlocked.Exchange(ref _position, Math.Max(0, frame));
+        if (resume && Position < (_plan?.Duration ?? 0)) Play();
     }
 
     public void Stop()

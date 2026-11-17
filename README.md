@@ -20,18 +20,42 @@ Microphone capture needs OS permission and an available default input device.
 ## MVP workflow
 
 1. **Import audio** (WAV, MP3, FLAC), or **Record**, then **Stop** to add a take.
-2. Add tracks, click a clip to select it and place the cursor, and drag clips to
-   move them horizontally or between tracks. Zoom with **+ / −**.
+2. Add tracks, click a clip to select it, and drag clips to move them horizontally
+   or between tracks. **Click/drag the time ruler** to position the playhead;
+   clip and track-header clicks do not seek. Zoom with **+ / −**, or **Fit**.
 3. Press **S** to split at the cursor, **Delete** to remove the selected clip,
    and use **Undo / Redo** as needed. To remove an interior segment, split at
    both ends, select the middle clip, and delete it. Deletion does not ripple.
-4. Adjust clip/track gain and hard limiting in the inspector. Split first to
-   process only a segment. Track headers and clip labels show gain/limiter state.
+4. Use track-header **Mute / Solo**, volume **− / +**, stereo balance **L / C / R**,
+   and **×** (undoable track deletion). Clip effects are in the inspector; all
+   clip/track effects are also in the **Effects** menu. Split first to process a segment.
 5. **Save** a `.audionest` project; **Export WAV** renders a stereo PCM16 mix.
 
-**Space** toggles playback, **Home** seeks to the start, **Ctrl/Cmd+S** saves,
+**Space** toggles playback, **Home / End** skip to the start/end, **Ctrl/Cmd+S** saves,
 **Ctrl/Cmd+Shift+S** saves as, **Ctrl/Cmd+Z** undoes, and **Ctrl/Cmd+Shift+Z**
 or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
+
+### Editor UI
+
+- **File / Edit / Effects / Tools / Help** group the available operations.
+  macOS exports these to its native menu bar; other platforms use an in-window
+  menu, with the same commands and enabled states.
+- The transport toolbar provides separate play, pause, stop, skip-to-start,
+  skip-to-end, and record buttons.
+- **Snap** magnetically aligns either moving clip edge with the playhead or other
+  clip boundaries (across tracks) within eight screen pixels. Hold **Alt** to
+  bypass it for one drag; turn Snap off for free positioning.
+- Light mode is the neutral default. Choose **Tools → Dark mode** to toggle.
+  Theme and snapping preferences are session-local, not project edits.
+- The timeline fills the available viewport; the track headers stay pinned during
+  horizontal scrolling and the ruler stays pinned during vertical scrolling.
+  Below 1100 px window width, the inspector hides to give the timeline room.
+  Its operations remain available through the menus.
+- The compact status bar shows playhead time to six decimal places plus the exact
+  project-frame index. Playback position is device-frame-driven, not timer-driven.
+- Track pan is **stereo balance**: center leaves both channels unchanged; moving
+  toward one ear attenuates the opposite channel. It is saved with the project
+  and used identically in playback and WAV export.
 
 ### Files and safety
 

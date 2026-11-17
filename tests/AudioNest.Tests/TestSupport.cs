@@ -38,12 +38,14 @@ internal sealed class FakeBackend : IAudioBackend
     public bool FailDecode { get; set; }
     public bool FailOutput { get; set; }
     public int RecordingStops { get; private set; }
+    public int DecodedFrames { get; set; } = 10;
     public IReadOnlyList<AudioDevice> GetOutputDevices() => [new("0", "Test output", true)];
     public IReadOnlyList<AudioDevice> GetInputDevices() => [new("0", "Test input", true)];
     public DecodedAudio Decode(string path, PcmFormat targetFormat, CancellationToken cancellationToken = default)
     {
         if (FailDecode) throw new InvalidDataException("Test decode failure.");
-        return new DecodedAudio(targetFormat, Enumerable.Repeat(0.25f, 20).ToArray());
+        return new DecodedAudio(targetFormat, Enumerable.Range(0, DecodedFrames * targetFormat.Channels)
+            .Select(i => 0.5f * MathF.Sin(i / (float)targetFormat.Channels * 0.04f)).ToArray());
     }
     public IAudioOutput OpenOutput(PcmFormat format, RenderAudio render, string? deviceId = null)
     {

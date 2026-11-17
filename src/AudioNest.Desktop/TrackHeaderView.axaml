@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:AudioNest.Desktop"
+             xmlns:a="using:Avalonia.Automation"
+             x:Class="AudioNest.Desktop.TrackHeaderView"
+             x:DataType="local:TrackHeaderViewModel" Height="148"
+             PointerPressed="SelectTrack">
+  <UserControl.Styles>
+    <Style Selector="Border">
+      <Setter Property="Background" Value="{DynamicResource EditorPanel}" />
+    </Style>
+    <Style Selector="Border.selected">
+      <Setter Property="Background" Value="{DynamicResource EditorSelected}" />
+    </Style>
+  </UserControl.Styles>
+  <Border Classes.selected="{Binding IsSelected}"
+          BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,0,1,1" Padding="10,8">
+    <Grid RowDefinitions="28,28,34,34">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <Button Grid.Column="1" Content="×" Classes="track" Command="{Binding Delete}"
+                a:AutomationProperties.Name="Delete track" ToolTip.Tip="Delete track (undoable)" />
+      </Grid>
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+        <ToggleButton Content="Mute" Classes="track" IsChecked="{Binding IsMuted, Mode=OneWay}"
+                      Command="{Binding Mute}" a:AutomationProperties.Name="Mute track" />
+        <ToggleButton Content="Solo" Classes="track" IsChecked="{Binding IsSolo, Mode=OneWay}"
+                      Command="{Binding Solo}" a:AutomationProperties.Name="Solo track" />
+      </StackPanel>
+      <Grid Grid.Row="2" ColumnDefinitions="42,30,*,30" VerticalAlignment="Center">
+        <TextBlock Text="Vol" Foreground="{DynamicResource EditorMuted}" VerticalAlignment="Center" FontSize="11" />
+        <Button Grid.Column="1" Content="−" Classes="track" Command="{Binding Quieter}" a:AutomationProperties.Name="Decrease track volume" ToolTip.Tip="Decrease volume by 3 dB" />
+        <TextBlock Grid.Column="2" Text="{Binding GainText}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <Button Grid.Column="3" Content="+" Classes="track" Command="{Binding Louder}" a:AutomationProperties.Name="Increase track volume" ToolTip.Tip="Increase volume by 3 dB" />
+      </Grid>
+      <Grid Grid.Row="3" ColumnDefinitions="34,28,28,28,*" VerticalAlignment="Center">
+        <TextBlock Text="Pan" Foreground="{DynamicResource EditorMuted}" VerticalAlignment="Center" FontSize="11" />
+        <Button Grid.Column="1" Content="L" Classes="track" Command="{Binding PanLeft}" a:AutomationProperties.Name="Balance toward left ear" ToolTip.Tip="Move balance 25% left" />
+        <Button Grid.Column="2" Content="C" Classes="track" Command="{Binding PanCenter}" a:AutomationProperties.Name="Center stereo balance" ToolTip.Tip="Center balance" />
+        <Button Grid.Column="3" Content="R" Classes="track" Command="{Binding PanRight}" a:AutomationProperties.Name="Balance toward right ear" ToolTip.Tip="Move balance 25% right" />
+        <TextBlock Grid.Column="4" Text="{Binding PanText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

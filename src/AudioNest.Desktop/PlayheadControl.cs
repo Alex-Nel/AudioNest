@@ -26,8 +26,8 @@ public sealed class PlayheadControl : Control
     {
         base.Render(context);
         if (_vm is null) return;
-        var x = 180 + (double)_vm.Position / _vm.Project.SampleRate * _vm.PixelsPerSecond;
-        context.DrawLine(new Pen(Brushes.PaleGreen, 1.5), new Point(x, 0), new Point(x, Bounds.Height));
-        context.FillRectangle(Brushes.PaleGreen, new Rect(x - 3, 0, 6, 6));
+        var x = (double)_vm.Position / _vm.Project.SampleRate * _vm.PixelsPerSecond;
+        var brush = TimelinePalette.For(_vm).Accent;
+        context.DrawLine(new Pen(brush, 1.5), new Point(x, 0), new Point(x, Bounds.Height));
     }
 }

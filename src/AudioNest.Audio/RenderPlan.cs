@@ -15,7 +15,7 @@ public sealed class RenderPlan
     private readonly float[] _clipScratch;
     private readonly float[] _trackScratch;
     private sealed record PreparedClip(AudioClip Clip, AudioBuffer Buffer, IAudioProcessor[] Effects);
-    private sealed record PreparedTrack(PreparedClip[] Clips, IAudioProcessor[] Effects);
+    private sealed record PreparedTrack(PreparedClip[] Clips, IAudioProcessor[] Effects, float Left, float Right);
 
     public RenderPlan(AudioProject project, Func<Guid, AudioBuffer> getBuffer, IAudioEffectFactory? effects = null)
     {
@@ -35,7 +35,7 @@ public sealed class RenderPlan
                 if (buffer.Format != Format || c.SourceOffset + c.Length > buffer.FrameCount)
                     throw new InvalidDataException("Decoded audio does not match the project.");
                 return new PreparedClip(c, buffer, Prepare(c.Effects));
-            }).ToArray(), Prepare(t.Effects))).ToArray();
+            }).ToArray(), Prepare(t.Effects), 1 - Math.Max(0, t.Pan), 1 + Math.Min(0, t.Pan))).ToArray();
     }
 
     public PcmFormat Format { get; }
@@ -70,7 +70,8 @@ public sealed class RenderPlan
                     for (var i = 0; i < clipSamples.Length; i++) trackSamples[destination + i] += clipSamples[i];
                 }
                 Process(trackSamples, track.Effects);
-                for (var i = 0; i < block.Length; i++) block[i] += trackSamples[i];
+                for (var i = 0; i < block.Length; i++)
+                    block[i] += trackSamples[i] * (i % 2 == 0 ? track.Left : track.Right);
             }
             // A final safety ceiling is shared by live output and export.
             for (var i = 0; i < block.Length; i++)

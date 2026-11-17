@@ -45,7 +45,7 @@ bounded 1024-frame blocks:
 
 ```text
 source region → clip effect chain → track sum → track effect chain
-              → master sum → safety clamp → device / WAV exporter
+              → stereo balance → master sum → safety clamp → device / WAV exporter
 ```
 
 Mute and solo are resolved during plan preparation. Clip/track chains preserve
@@ -64,6 +64,18 @@ quiesces the device before changing position or resetting processors. The Avalon
 playhead is a separate overlay, so clock ticks do not invalidate waveform content.
 The reported position is rendered frames, not hardware-latency-compensated audible
 position.
+
+The UI separates a clip canvas from a pinned ruler and actual per-track controls.
+Only ruler pointer gestures seek; clip drags preserve the cursor. `ClipSnapping`
+resolves frame positions independently of UI, with an eight-pixel tolerance
+converted to frames by the presentation layer. One drag is one undoable edit.
+Ruler/clip horizontal scroll offsets are synchronized; vertical track scrolling
+moves headers and clips together. Timeline extents grow from the viewport rather
+than a fixed minimum width. Clip drawing is limited to its effective viewport.
+
+Track `Pan` is an additive version-1 field (missing values default to zero). It is
+stereo balance in [-1, 1], not a channel-summing mono panner; center preserves unity.
+Track deletion retains media for undo and does not garbage-collect source files.
 
 `AudioBuffer` owns interleaved normalized float PCM and a 256-frame min/max cache.
 The caller transfers array ownership and must not subsequently mutate it.
