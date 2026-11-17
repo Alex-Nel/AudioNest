@@ -22,7 +22,8 @@ does **not** verify SoundFlow deployment.
 
 Use disposable test material first:
 
-- Start the app with no default audio device: editing should still work; Play or
+- Confirm maximized startup with normal OS decorations, and restore the window.
+  Start the app with no default audio device: editing should still work; Play or
   Record should show an actionable error without crashing.
 - Import WAV/MP3/FLAC at 44.1/48/96 kHz. Confirm timing, channels, waveform, and
   correct speed/pitch after normalization.
@@ -34,17 +35,31 @@ Use disposable test material first:
   Clip selection/movement and track-header buttons must not move the playhead.
 - Toggle Snap, align both clip edges to the cursor/other clips at different zoom
   levels, and hold Alt to bypass. Undo a drag in one operation.
+- Use toolbar magnifiers and left-Alt wheel zoom at different scroll offsets.
+  The playhead should stay at the same screen x when visible; if offscreen, zoom
+  should bring it into view. Ordinary wheel scrolling must not change zoom.
+- Hold left Shift while seeking with the ruler: test nearby boundaries on every
+  track. Right Alt/Shift should not activate these side-specific gestures.
 - Resize to 760–1500 px widths and vary height; confirm pinned track headers,
   ruler/clip horizontal alignment, fixed horizontal scrollbar, and inspector hiding.
 - Toggle light/dark mode and operate File/Edit/Effects/Tools/Help. On macOS,
   verify native menu export, enabled/check states, and Cmd shortcuts physically.
-- Test each track's mute, volume, L/C/R balance, and delete buttons. Undo deletion,
+- Test each track's mute, volume (0 / 1 / 2×), pan slider, and delete button. A
+  pointer slider drag should undo in one step, including interrupted capture.
+  Keyboard slider steps should work. Undo deletion,
   save/open balance, and compare stereo-channel results in playback/export.
+- Drag the inspector divider to both limits, shrink/restore the window, and
+  verify remembered width and timeline/ruler alignment. Change clip selection and
+  confirm status text and inspector metadata/effect rows follow the selection.
 - Confirm separate Play and Pause buttons, skip-to-start/end, and live status-bar
   microsecond time/exact frame count while playing and seeking.
 - Apply gain/limiter to one segment and its parent track. Check mute and solo.
 - Grant microphone permission. Record a short mono take, stop, listen, save,
   close, reopen, and export. Confirm recording has no monitoring feedback.
+- Watch both toolbar meters with actual devices: timeline output should respond
+  to playing clips (including mute/gain), and the mic meter should respond only
+  during recording. Startup must not request microphone access. Check silence,
+  meter decay, clipping-range peaks, stopping, and restarting.
 - Deny microphone permission or unplug an input device and check error handling.
   Capture-device disconnect/dropout recovery is not yet implemented.
 - Keep takes below ten minutes (the import cap). If a longer recording fails

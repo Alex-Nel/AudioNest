@@ -188,3 +188,77 @@ Further implementation and verification entries are appended below.
   platform checks; native-menu code is implemented but not claimed as Mac-tested.
 - Kept `TODO.txt` unchanged, preserved the user's pre-existing `.gitignore` change,
   and created no commits.
+
+## 2026-11-17 — UI refinement TODO
+
+- Read the new eleven-point TODO list. User clarified that startup should be
+  **maximized**, not literal fullscreen; retain normal window decorations.
+- Plan: compact menus, icon-only grouped transport, one unified toolbar with
+  playhead-centered zoom and live output/recording meters, volume/pan sliders,
+  left-Alt wheel zoom, left-Shift ruler snapping, selection-aware status, and a
+  resizable inspector with separate metadata/effects presentation.
+- Added callback-safe peak metering with atomic UI handoff, output measurements
+  after timeline rendering, and input measurements subscribed only during actual
+  recording. No startup microphone monitoring or sample retention is introduced.
+- Added frame-based ruler boundary snapping, selection status, meter presentation,
+  and an isolated inspector view model/effect-row structure for future editors.
+- Added volume (0–2×, default 1×) and pan sliders. Pointer drags preview locally and
+  commit once on release/capture loss, so a slider gesture creates one undo step;
+  keyboard adjustments commit normally. Track deletion now precedes the name.
+- Removed the separate timeline tool strip. Added a compact 24-px menu row,
+  square icon-only transport (green play/red record), faint group dividers, editing
+  controls in the same toolbar, and right-aligned output/input peak meters.
+- Added maximized startup (normal OS title bar), playhead-anchored toolbar/menu/
+  left-Alt-wheel zoom, side-specific modifier tracking/reset, and left-Shift ruler
+  snapping to nearby clip boundaries on all tracks.
+- Split the inspector into reusable metadata, effect-list, and action sections,
+  with a constrained draggable divider and remembered session-local width.
+- Added regression coverage for startup state, toolbar grouping/icons, actual
+  slider pointer gestures and undo, modifier-specific zoom/snapping, selected clip
+  status, callback-driven meters, and actual inspector-divider dragging.
+- Initial run passed 41/42 cases; corrected Fit to include an out-of-project cursor
+  in the visible extent. Visual review scoped header styling away from slider
+  template borders and removed duplicated inspector metadata.
+- All 42 regression cases now pass, including pointer capture-loss commit. Track
+  gain menu actions now share the slider's 2× editing limit; higher legacy gains
+  remain preserved and truthfully labeled, with an explanatory slider tooltip.
+- Updated usage, threading/extension guidance, and manual acceptance checks for
+  the unified toolbar, peak-meter privacy/semantics, slider gestures, side-specific
+  modifiers, maximized startup, selection status, and resizable inspector.
+- Windows x64 Native AOT publishing succeeded. A first immediate input-idle/close
+  smoke attempt timed out; rerunning with native-window title/close diagnostics
+  observed the AudioNest window, accepted normal close, and exited with code 0.
+  The smoke-test processes were cleaned up; no physical audio I/O was started.
+- Strengthened ordinary-wheel coverage to assert actual navigation, not only an
+  unchanged zoom. This exposed that hidden synchronized scroll viewers consumed
+  the wheel without moving; added explicit track-vertical/time-horizontal routing.
+  Left-Alt zoom still consumes only its intended timeline gesture.
+
+### Completion and final verification
+
+1. Maximized startup, not fullscreen, as clarified by the user.
+2. Thinner 24-px in-window menu bar; native macOS menu support retained.
+3. Removed the separate timeline strip; toolbar magnifiers zoom around the playhead.
+4. Faint toolbar separators and 42×42 transport buttons.
+5. Icon-only transport with green play and red record; tooltips/accessibility names retained.
+6. Track volume/pan sliders, 0–2× volume with default 1×, and delete before track name.
+7. Left transport, middle editing controls, right speaker/microphone peak meters.
+8. Left-Alt wheel zoom; ordinary wheel actually pans time or scrolls tracks.
+9. Left-Shift ruler seeking snaps to nearby start/end boundaries on any track.
+10. Selected track and clip names in the left status area, without hiding errors/recording state.
+11. Draggable inspector divider with reusable metadata/effect-list/action view models.
+
+- `dotnet test AudioNest.sln --configuration Release`: **42 passed, 0 failed,
+  0 skipped**, including real pointer/keyboard gestures, ordinary horizontal and
+  vertical wheel navigation, callback peak handoff, allocation checks, and input
+  meter inactivity outside recording. Final build produced no warnings/errors.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git diff --check`: passed; only the repository's existing LF/CRLF notices appeared.
+- Repeated Windows x64 Native AOT publish after the final navigation correction:
+  succeeded without warnings. Final native startup/normal-close smoke test exited
+  with **code 0** and left no test process running.
+- Inspected populated light/dark Skia captures. Generated screenshots/build outputs
+  remain under ignored output directories.
+- Physical microphone/speaker metering and non-Windows behavior still require
+  manual hardware/platform acceptance. No physical recording/playback was started.
+- Kept `TODO.txt` unchanged, made no commits, and preserved unrelated files.

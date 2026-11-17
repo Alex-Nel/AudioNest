@@ -19,7 +19,8 @@ public static class ProjectEdits
     {
         var index = project.Tracks.FindIndex(t => t.Id == id);
         if (index < 0) throw new ArgumentException("Track not found.", nameof(id));
-        return project with { Tracks = project.Tracks.SetItem(index, edit(project.Tracks[index])) };
+        var next = edit(project.Tracks[index]);
+        return next == project.Tracks[index] ? project : project with { Tracks = project.Tracks.SetItem(index, next) };
     }
 
     public static AudioProject UpdateClip(AudioProject project, Guid id, Func<AudioClip, AudioClip> edit) =>

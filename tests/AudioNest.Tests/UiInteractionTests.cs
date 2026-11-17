@@ -42,7 +42,7 @@ public sealed class UiInteractionTests
         using var vm = Create(backend, directory);
         var source = TestProjects.WriteWave(directory.Path);
         await vm.ImportAsync(source);
-        var window = new MainWindow(vm);
+        var window = new MainWindow(vm) { WindowState = WindowState.Normal };
         window.Show();
         Layout();
         var clips = window.FindControl<TimelineControl>("TimelineClips")!;
@@ -81,14 +81,13 @@ public sealed class UiInteractionTests
         using var backend = new FakeBackend();
         using var vm = Create(backend, directory);
         await vm.ImportAsync(TestProjects.WriteWave(directory.Path));
-        var window = new MainWindow(vm);
+        var window = new MainWindow(vm) { WindowState = WindowState.Normal };
         window.Show();
         Layout();
         var header = window.GetVisualDescendants().OfType<TrackHeaderView>().Single();
         var track = vm.TrackHeaders.Single();
-        var buttons = header.GetVisualDescendants().OfType<Button>().ToArray();
-        var panRight = buttons.Single(b => ReferenceEquals(b.Command, track.PanRight));
-        Click(window, panRight, new Point(panRight.Bounds.Width / 2, panRight.Bounds.Height / 2));
+        var pan = header.FindControl<Slider>("PanSlider")!;
+        pan.Value = 0.25;
         Assert.Equal(0.25f, vm.Project.Tracks[0].Pan);
         track.Quieter.Execute(null);
         Assert.Contains("-3.0", track.GainText);
@@ -116,7 +115,7 @@ public sealed class UiInteractionTests
         using var directory = new TempDirectory();
         using var backend = new FakeBackend();
         using var vm = Create(backend, directory);
-        var window = new MainWindow(vm);
+        var window = new MainWindow(vm) { WindowState = WindowState.Normal };
         window.Show();
         Layout();
         Assert.Equal(ThemeVariant.Light, Avalonia.Application.Current!.RequestedThemeVariant);
@@ -201,7 +200,7 @@ public sealed class UiInteractionTests
         using var backend = new FakeBackend { DecodedFrames = 96000 };
         using var vm = Create(backend, directory);
         await vm.ImportAsync(TestProjects.WriteWave(directory.Path));
-        var window = new MainWindow(vm);
+        var window = new MainWindow(vm) { WindowState = WindowState.Normal };
         window.Show();
         Layout();
         var clips = window.FindControl<TimelineControl>("TimelineClips")!;

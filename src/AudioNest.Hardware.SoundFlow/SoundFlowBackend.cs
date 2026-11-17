@@ -73,17 +73,21 @@ public sealed class SoundFlowBackend : IAudioBackend
     public IAudioRecording StartRecording(PcmFormat format, string path, string? deviceId = null)
     {
         var device = Engine.InitializeCaptureDevice(Select(true, deviceId), Convert(format));
+        var meter = new AudioPeakMeter();
+        AudioProcessCallback observe = (samples, _) => meter.Measure(samples);
         Recorder? recorder = null;
         try
         {
+            device.OnAudioProcessed += observe;
             recorder = new Recorder(device, path);
             var result = recorder.StartRecording();
             if (result.IsFailure) throw new IOException($"Cannot start recording: {result.Error}");
             device.Start();
-            return new Recording(device, recorder);
+            return new Recording(device, recorder, meter, observe);
         }
         catch
         {
+            device.OnAudioProcessed -= observe;
             recorder?.Dispose();
             device.Dispose();
             throw;
@@ -141,15 +145,19 @@ public sealed class SoundFlowBackend : IAudioBackend
         }
     }
 
-    private sealed class Recording(AudioCaptureDevice device, Recorder recorder) : IAudioRecording
+    private sealed class Recording(AudioCaptureDevice device, Recorder recorder, AudioPeakMeter meter,
+        AudioProcessCallback observe) : IAudioRecording
     {
         private bool _stopped;
+        public AudioPeakMeter InputMeter => meter;
         public void Stop()
         {
             if (_stopped) return;
             _stopped = true;
             // Quiesce the callback before finalizing the encoder or stream.
             device.Stop();
+            device.OnAudioProcessed -= observe;
+            meter.Clear();
             try
             {
                 var result = recorder.StopRecording();

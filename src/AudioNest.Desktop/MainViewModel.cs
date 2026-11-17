@@ -26,6 +26,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private double _timelineViewportHeight = 300;
     private bool _isSnappingEnabled = true;
     private bool _isDarkMode;
+    private float _outputPeak;
+    private float _inputPeak;
 
     public MainViewModel(ProjectSession session, AudioLibrary library, AudioTransport transport,
         IAudioBackend backend, IProjectStore store, string? workspace = null)
@@ -37,6 +39,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _store = store;
         _workspace = workspace ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AudioNest", "Media");
+        Inspector = new ClipInspectorViewModel(this);
         _session.Changed += OnProjectChanged;
         _session.Open(ProjectEdits.AddTrack(new AudioProject()));
     }
@@ -45,6 +48,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public event Action? TimelineChanged;
     public event Action? ClockChanged;
     public ObservableCollection<TrackHeaderViewModel> TrackHeaders { get; } = [];
+    public ClipInspectorViewModel Inspector { get; }
     public AudioProject Project => _session.Project;
     public AudioClip? SelectedClip => Project.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.Id == SelectedClipId);
     public AudioTrack? SelectedTrack => Project.Tracks.FirstOrDefault(t => t.Id == SelectedTrackId);
@@ -73,6 +77,19 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     public string Title => $"{Project.Name}{(IsDirty ? " •" : "")} — AudioNest";
     public string Status => _status;
+    public string SelectionStatus => SelectedClip is { } clip
+        ? $"{ProjectEdits.FindTrack(Project, clip.Id).Name}  ·  {clip.Name}" : "";
+    public string StatusBarText => SelectedClip is null ? Status :
+        IsBusy || IsRecording || Status.StartsWith("Error:", StringComparison.Ordinal)
+            ? $"{SelectionStatus} — {Status}" : SelectionStatus;
+    public bool IsLeftAltDown { get; set; }
+    public bool IsLeftShiftDown { get; set; }
+    public double OutputLevel => MeterLevel(_outputPeak);
+    public double InputLevel => MeterLevel(_inputPeak);
+    public string OutputMeterText => $"Timeline output: {Decibels(_outputPeak)}";
+    public string InputMeterText => IsRecording ? $"Microphone: {Decibels(_inputPeak)}" : "Microphone inactive";
+    public string OutputDecibels => Decibels(_outputPeak);
+    public string InputDecibels => IsRecording ? Decibels(_inputPeak) : "idle";
     public string PlayLabel => _transport.IsPlaying ? "Pause" : "Play";
     public string RecordLabel => IsRecording ? "Recording…" : "● Record";
     public string PositionText
@@ -92,7 +109,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string TrackText => SelectedTrack is { } t
         ? $"{t.Name}{(t.Muted ? " · muted" : "")}{(t.Solo ? " · solo" : "")}" : "No track selected";
     public double PixelsPerSecond { get; private set; } = 90;
-    public double TimelineWidth => Math.Max(_timelineViewportWidth, ((double)Project.Duration / Project.SampleRate + 5) * PixelsPerSecond);
+    public double TimelineWidth => Math.Max(_timelineViewportWidth, ((double)Math.Max(Project.Duration, Position) / Project.SampleRate + 5) * PixelsPerSecond);
     public double TimelineHeight => Math.Max(_timelineViewportHeight, Math.Max(1, Project.Tracks.Length) * TimelineMetrics.TrackHeight);
     public AudioBuffer Buffer(Guid asset) => _library[asset];
     private PcmFormat Format => new(Project.SampleRate, 2);
@@ -103,6 +120,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         TimelineChanged?.Invoke();
         ClockChanged?.Invoke();
         foreach (var track in TrackHeaders) track.Refresh();
+        Inspector.Refresh();
     }
 
     private void OnProjectChanged()
@@ -121,8 +139,17 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PositionFramesText)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanPlay)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanPause)));
+        _outputPeak = Math.Max(_transport.OutputMeter.ReadAndReset(), _outputPeak * 0.78f);
+        _inputPeak = IsRecording ? Math.Max(_recording!.InputMeter.ReadAndReset(), _inputPeak * 0.78f) : 0;
+        if (_outputPeak < 0.0001f) _outputPeak = 0;
+        if (_inputPeak < 0.0001f) _inputPeak = 0;
+        foreach (var property in new[] { nameof(OutputLevel), nameof(InputLevel), nameof(OutputMeterText),
+            nameof(InputMeterText), nameof(OutputDecibels), nameof(InputDecibels) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
         ClockChanged?.Invoke();
     }
+    private static double MeterLevel(float peak) => peak <= 0 ? 0 : Math.Clamp((20 * Math.Log10(peak) + 60) / 60, 0, 1);
+    private static string Decibels(float peak) => peak <= 0 ? "−∞ dBFS" : $"{20 * Math.Log10(peak):0.0} dBFS";
 
     public void Select(Guid? track, Guid? clip)
     {
@@ -133,6 +160,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public void Seek(long frame) { if (CanEdit) { _transport.Seek(frame); Notify(); } }
+    public void SeekFromRuler(long frame) => Seek(IsLeftShiftDown
+        ? ClipSnapping.SnapPlayhead(Project, frame, (long)(TimelineMetrics.SnapPixels / PixelsPerSecond * Project.SampleRate))
+        : frame);
     public void SetTimelineViewportWidth(double width)
     {
         if (!double.IsFinite(width) || width <= 0 || Math.Abs(width - _timelineViewportWidth) < 0.5) return;
@@ -148,7 +178,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public void FitProject()
     {
         PixelsPerSecond = Math.Clamp(Math.Max(1, _timelineViewportWidth - 1) /
-            ((double)Project.Duration / Project.SampleRate + 5), 0.1, 800);
+            ((double)Math.Max(Project.Duration, Position) / Project.SampleRate + 5), 0.1, 800);
         Notify();
     }
     public void Zoom(double multiplier)
@@ -188,8 +218,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return t with
             {
                 Effects = t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0,
-                    new EffectSpec(EffectKind.Gain, Math.Clamp(gain * MathF.Pow(10, decibels / 20), 0, 16)))
+                    new EffectSpec(EffectKind.Gain, Math.Clamp(gain * MathF.Pow(10, decibels / 20), 0, 2)))
             };
+        }));
+    public void SetTrackVolume(Guid id, float volume) => Edit("Track volume",
+        p => ProjectEdits.UpdateTrack(p, id, t =>
+        {
+            var clamped = float.IsFinite(volume) ? Math.Clamp(volume, 0, 2) : 1;
+            if ((t.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1) == clamped) return t;
+            return t with { Effects = t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0, new EffectSpec(EffectKind.Gain, clamped)) };
         }));
     public void SetTrackPan(Guid id, float pan) => Edit("Track stereo balance",
         p => ProjectEdits.UpdateTrack(p, id, t => t with { Pan = Math.Clamp(pan, -1, 1) }));
@@ -218,7 +255,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             var gain = effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1;
             return effects.RemoveAll(e => e.Kind == EffectKind.Gain)
-                .Insert(0, new EffectSpec(EffectKind.Gain, Math.Clamp(gain * MathF.Pow(10, decibels / 20), 0, 16)));
+                .Insert(0, new EffectSpec(EffectKind.Gain, Math.Clamp(gain * MathF.Pow(10, decibels / 20), 0, track ? 2 : 16)));
         }
         if (track && SelectedTrackId is { } tid)
             Edit("Track gain", p => ProjectEdits.UpdateTrack(p, tid, t => t with { Effects = Change(t.Effects) }));
@@ -246,14 +283,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception ex) { ReportError(ex); }
     }
     public void StartPlayback() { if (CanPlay) Play(); }
-    public void Pause() { if (CanEdit) { _transport.Pause(); Notify(); } }
+    public void Pause() { if (CanEdit) { _transport.Pause(); _outputPeak = 0; Notify(); } }
     public void SkipToStart() => Seek(0);
     public void SkipToEnd() => Seek(Project.Duration);
 
     public async Task StopAsync()
     {
         if (IsBusy) return;
-        if (_recording is null) { _transport.Stop(); Notify(); return; }
+        if (_recording is null) { _transport.Stop(); _outputPeak = 0; Notify(); return; }
         var recording = _recording;
         var path = _recordingPath!;
         var track = _recordingTrack;
@@ -261,7 +298,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         await RunAsync(async () =>
         {
             try { await Task.Run(recording.Stop); }
-            finally { _recording = null; }
+            finally { _recording = null; _inputPeak = 0; }
             await ImportCoreAsync(path, track, at);
             _status = "Recording added. The original take is preserved.";
         });
@@ -273,6 +310,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             _transport.Pause();
+            _outputPeak = _inputPeak = 0;
             if (SelectedTrackId is null) AddTrack();
             Directory.CreateDirectory(_workspace);
             _recordingPath = Path.Combine(_workspace, $"Take-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.wav");

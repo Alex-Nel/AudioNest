@@ -20,6 +20,7 @@ public partial class MainWindow
         (MenuItem Item, NativeMenu Native) Section(string header)
         {
             var item = new MenuItem { Header = header };
+            item.Classes.Add("topLevel");
             var submenu = new NativeMenu();
             EditorMenuBar.Items.Add(item);
             native.Items.Add(new NativeMenuItem { Header = header, Menu = submenu });
@@ -74,15 +75,15 @@ public partial class MainWindow
             check: () => _vm.SelectedTrack?.Effects.Any(e => e.Kind == Domain.EffectKind.HardLimiter) ?? false);
 
         var tools = Section("Tools");
-        Item(tools, "Zoom in", () => _vm.Zoom(1.4));
-        Item(tools, "Zoom out", () => _vm.Zoom(1 / 1.4));
+        Item(tools, "Zoom in", () => ZoomAroundPlayhead(1.4));
+        Item(tools, "Zoom out", () => ZoomAroundPlayhead(1 / 1.4));
         Item(tools, "Fit project", () => { _vm.FitProject(); TimelineScroll.Offset = default; });
         Item(tools, "Snap clips", () => _vm.IsSnappingEnabled = !_vm.IsSnappingEnabled, check: () => _vm.IsSnappingEnabled);
         Item(tools, "Dark mode", () => _vm.IsDarkMode = !_vm.IsDarkMode, check: () => _vm.IsDarkMode);
 
         var help = Section("Help");
         AsyncItem(help, "Keyboard shortcuts", () => ShowInformationAsync("Keyboard shortcuts",
-            "Space — Play / pause\nHome / End — Go to start / end\nS — Split selected clip at playhead\nDelete — Delete selected clip\nCtrl/Cmd+Z — Undo\nCtrl/Cmd+Shift+Z or Ctrl/Cmd+Y — Redo\nCtrl/Cmd+N / O / S — New / Open / Save\nCtrl/Cmd+Shift+S — Save as\nCtrl/Cmd+I — Import audio\n\nDrag the time ruler to move the playhead.\nDrag clips to move them; Alt bypasses snapping.\nTrack-header L / C / R controls adjust stereo balance."));
+            "Space — Play / pause\nHome / End — Go to start / end\nS — Split selected clip at playhead\nDelete — Delete selected clip\nCtrl/Cmd+Z — Undo\nCtrl/Cmd+Shift+Z or Ctrl/Cmd+Y — Redo\nCtrl/Cmd+N / O / S — New / Open / Save\nCtrl/Cmd+Shift+S — Save as\nCtrl/Cmd+I — Import audio\n\nLeft Alt + wheel — Zoom around the playhead\nLeft Shift + ruler drag — Snap to clip boundaries\nDrag clips to move them; Alt bypasses clip snapping.\nTrack volume: 0–2×, default 1×. Pan: left to right.\nDrag the inspector divider to resize it."));
         AsyncItem(help, "About AudioNest", () => ShowInformationAsync("About AudioNest",
             "AudioNest\nNon-destructive multitrack recording and editing.\n\nBuilt with .NET, Avalonia, and SoundFlow / MiniAudio.\nGain and hard limiting are included.\nAdvanced DSP and VST hosting are not yet implemented."));
 

@@ -66,7 +66,7 @@ public sealed class TimelineRulerControl : Control
     private void Seek(Point point)
     {
         if (_vm is null) return;
-        _vm.Seek(Math.Max(0, (long)Math.Round(point.X / _vm.PixelsPerSecond * _vm.Project.SampleRate)));
+        _vm.SeekFromRuler(Math.Max(0, (long)Math.Round(point.X / _vm.PixelsPerSecond * _vm.Project.SampleRate)));
     }
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {

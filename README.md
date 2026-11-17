@@ -22,12 +22,12 @@ Microphone capture needs OS permission and an available default input device.
 1. **Import audio** (WAV, MP3, FLAC), or **Record**, then **Stop** to add a take.
 2. Add tracks, click a clip to select it, and drag clips to move them horizontally
    or between tracks. **Click/drag the time ruler** to position the playhead;
-   clip and track-header clicks do not seek. Zoom with **+ / −**, or **Fit**.
+   clip and track-header clicks do not seek. Use the magnifier buttons or **Fit**.
 3. Press **S** to split at the cursor, **Delete** to remove the selected clip,
    and use **Undo / Redo** as needed. To remove an interior segment, split at
    both ends, select the middle clip, and delete it. Deletion does not ripple.
-4. Use track-header **Mute / Solo**, volume **− / +**, stereo balance **L / C / R**,
-   and **×** (undoable track deletion). Clip effects are in the inspector; all
+4. Use track-header **Mute / Solo**, the volume and stereo-balance sliders,
+   and **×** beside the name (undoable track deletion). Clip effects are in the inspector; all
    clip/track effects are also in the **Effects** menu. Split first to process a segment.
 5. **Save** a `.audionest` project; **Export WAV** renders a stereo PCM16 mix.
 
@@ -40,8 +40,15 @@ or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
 - **File / Edit / Effects / Tools / Help** group the available operations.
   macOS exports these to its native menu bar; other platforms use an in-window
   menu, with the same commands and enabled states.
-- The transport toolbar provides separate play, pause, stop, skip-to-start,
-  skip-to-end, and record buttons.
+- The application starts **maximized**, with its normal OS title bar. Restore it
+  with the usual window controls.
+- One grouped toolbar provides icon-only play (green), pause, stop, skip-to-start,
+  skip-to-end, and record (red), followed by import/track/snap/zoom/fit controls.
+  Tooltips and accessibility labels identify the icons.
+- Magnifier buttons and **left Alt + mouse wheel** zoom around the playhead,
+  preserving its screen position when visible, or bringing it into view when not.
+  Unmodified wheel scrolling navigates the timeline. **Left Shift + ruler drag**
+  magnetically snaps the cursor to clip starts/ends on any track within eight pixels.
 - **Snap** magnetically aligns either moving clip edge with the playhead or other
   clip boundaries (across tracks) within eight screen pixels. Hold **Alt** to
   bypass it for one drag; turn Snap off for free positioning.
@@ -50,12 +57,25 @@ or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
 - The timeline fills the available viewport; the track headers stay pinned during
   horizontal scrolling and the ruler stays pinned during vertical scrolling.
   Below 1100 px window width, the inspector hides to give the timeline room.
-  Its operations remain available through the menus.
+  Its operations remain available through the menus. At wider sizes, drag its left
+  divider to resize it (200–520 px); that width is retained during the session.
+  The inspector has separate clip metadata, effects-list, and action sections.
 - The compact status bar shows playhead time to six decimal places plus the exact
-  project-frame index. Playback position is device-frame-driven, not timer-driven.
+  project-frame index. Its left side identifies the selected track and clip;
+  operation errors and recording/busy state remain visible.
+  Playback position is device-frame-driven, not timer-driven.
+- Track volume is a linear amplitude multiplier: **0** is silence, **1** is
+  unchanged, **2** is twice the amplitude (+6 dB). A slider drag previews its value
+  and commits on release/capture loss as one undo step. Pan ranges from −1 to +1.
+  Existing saved gains above 2× are preserved and labeled; moving the volume
+  slider chooses a new value within 0–2×.
 - Track pan is **stereo balance**: center leaves both channels unchanged; moving
   toward one ear attenuates the opposite channel. It is saved with the project
   and used identically in playback and WAV export.
+- Two skinny toolbar meters show actual timeline output (speaker) and microphone
+  input (microphone), with dBFS readouts and peak decay. Input is metered **only
+  while recording**: startup does not open or monitor the microphone.
+  These are peak meters, not RMS/perceived-loudness or LUFS analysis.
 
 ### Files and safety
 

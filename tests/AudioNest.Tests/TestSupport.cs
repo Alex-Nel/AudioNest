@@ -39,6 +39,7 @@ internal sealed class FakeBackend : IAudioBackend
     public bool FailOutput { get; set; }
     public int RecordingStops { get; private set; }
     public int DecodedFrames { get; set; } = 10;
+    public FakeRecording? Recording { get; private set; }
     public IReadOnlyList<AudioDevice> GetOutputDevices() => [new("0", "Test output", true)];
     public IReadOnlyList<AudioDevice> GetInputDevices() => [new("0", "Test input", true)];
     public DecodedAudio Decode(string path, PcmFormat targetFormat, CancellationToken cancellationToken = default)
@@ -55,7 +56,7 @@ internal sealed class FakeBackend : IAudioBackend
     public IAudioRecording StartRecording(PcmFormat format, string path, string? deviceId = null)
     {
         File.WriteAllText(path, "fake recording decoded by fake backend");
-        return new FakeRecording(() => RecordingStops++);
+        return Recording = new FakeRecording(() => RecordingStops++);
     }
     public void Dispose() { }
 
@@ -72,9 +73,10 @@ internal sealed class FakeBackend : IAudioBackend
         }
         public void Dispose() => Stop();
     }
-    private sealed class FakeRecording(Action stop) : IAudioRecording
+    public sealed class FakeRecording(Action stop) : IAudioRecording
     {
         private bool _stopped;
+        public AudioPeakMeter InputMeter { get; } = new();
         public void Stop() { if (!_stopped) { _stopped = true; stop(); } }
         public void Dispose() => Stop();
     }

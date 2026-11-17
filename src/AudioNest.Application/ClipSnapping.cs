@@ -7,6 +7,22 @@ public readonly record struct ClipSnap(long Start, long? Target);
 /// <summary>Frame-based magnetic snapping, independent of UI coordinates and zoom.</summary>
 public static class ClipSnapping
 {
+    public static long SnapPlayhead(AudioProject project, long proposed, long tolerance)
+    {
+        var position = Math.Max(0, proposed);
+        var best = position;
+        var distance = long.MaxValue;
+        foreach (var clip in project.Tracks.SelectMany(t => t.Clips))
+        {
+            foreach (var edge in new[] { clip.Start, clip.End })
+            {
+                var delta = Math.Abs(edge - position);
+                if (delta <= tolerance && delta < distance) { best = edge; distance = delta; }
+            }
+        }
+        return best;
+    }
+
     public static ClipSnap Resolve(AudioProject project, AudioClip moving, long proposedStart, long playhead, long tolerance)
     {
         var start = Math.Clamp(proposedStart, 0, long.MaxValue - moving.Length);

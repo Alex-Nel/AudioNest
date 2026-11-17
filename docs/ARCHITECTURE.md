@@ -73,6 +73,20 @@ Ruler/clip horizontal scroll offsets are synchronized; vertical track scrolling
 moves headers and clips together. Timeline extents grow from the viewport rather
 than a fixed minimum width. Clip drawing is limited to its effective viewport.
 
+Toolbar/menu zoom and left-Alt wheel zoom share a playhead anchor, and wait for
+the new layout extent before assigning the new scroll offset. Only physical-left
+Alt/Shift state enables the new gestures; window deactivation clears that state.
+Left-Shift ruler snapping reuses frame-based clip boundaries with a screen-pixel
+tolerance, independent of the optional clip-move snapping toggle.
+
+Track slider drags keep a transient presentation preview and commit one metadata
+edit on release or capture loss; keyboard steps commit individually. Thus dragging
+does not fill the 200-edit history or mutate the audio graph on every mouse move.
+The volume slider is 0–2×, while pre-existing higher saved gains are left intact.
+Inspector width, zoom, theme, and snapping remain view state, not project fields.
+`ClipInspectorView` / `ClipInspectorViewModel` isolate metadata, ordered effect rows,
+and actions so future parameter editors need not be embedded in the window layout.
+
 Track `Pan` is an additive version-1 field (missing values default to zero). It is
 stereo balance in [-1, 1], not a channel-summing mono panner; center preserves unity.
 Track deletion retains media for undo and does not garbage-collect source files.
@@ -117,6 +131,14 @@ file. Original captures remain available in the working-media folder on import
 failure. Capture currently delegates encoding to SoundFlow's stock recorder, which
 does work on its capture callback. Replace this with a preallocated bounded ring
 buffer plus background encoder before pursuing low-latency recording guarantees.
+
+`AudioPeakMeter` transfers only peak amplitudes with atomic compare/exchange and
+read/reset operations; it performs no UI calls, allocation, locks, or sample
+retention. The output callback measures the rendered timeline mix. A separate
+meter subscribes to the capture device only for a recording session, and is
+unsubscribed/cleared when capture stops. The UI polls these independent meters and
+applies display decay / a −60..0 dBFS scale. This is peak level measurement, not
+LUFS/RMS loudness analysis and not microphone monitoring at startup.
 
 For recording-time effects, keep a dry take, feed a prepared recording graph, and
 separately support monitoring and wet printing. Add input/output latency

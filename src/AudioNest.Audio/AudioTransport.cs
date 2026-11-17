@@ -20,6 +20,7 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
     private int _playing;
     public long Position => Interlocked.Read(ref _position);
     public bool IsPlaying => Volatile.Read(ref _playing) != 0;
+    public AudioPeakMeter OutputMeter { get; } = new();
 
     public void SetPlan(RenderPlan plan)
     {
@@ -49,6 +50,7 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
     {
         Volatile.Write(ref _playing, 0);
         _output?.Stop();
+        OutputMeter.Clear();
     }
 
     public void Seek(long frame)
@@ -73,6 +75,7 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
         if (!IsPlaying || plan is null) { output.Clear(); return; }
         var position = Position;
         plan.Render(position, output);
+        OutputMeter.Measure(output);
         var next = Math.Min(plan.Duration, position + output.Length / plan.Format.Channels);
         Interlocked.Exchange(ref _position, next);
         if (next >= plan.Duration) Volatile.Write(ref _playing, 0);

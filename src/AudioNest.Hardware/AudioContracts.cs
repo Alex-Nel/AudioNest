@@ -28,6 +28,7 @@ public interface IAudioOutput : IDisposable
 
 public interface IAudioRecording : IDisposable
 {
+    AudioPeakMeter InputMeter { get; }
     // Finalizes the output file and releases the input device.
     void Stop();
 }

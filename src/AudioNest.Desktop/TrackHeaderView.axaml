@@ -6,20 +6,20 @@
              x:DataType="local:TrackHeaderViewModel" Height="148"
              PointerPressed="SelectTrack">
   <UserControl.Styles>
-    <Style Selector="Border">
+    <Style Selector="Border.trackSurface">
       <Setter Property="Background" Value="{DynamicResource EditorPanel}" />
     </Style>
-    <Style Selector="Border.selected">
+    <Style Selector="Border.trackSurface.selected">
       <Setter Property="Background" Value="{DynamicResource EditorSelected}" />
     </Style>
   </UserControl.Styles>
-  <Border Classes.selected="{Binding IsSelected}"
+  <Border Classes="trackSurface" Classes.selected="{Binding IsSelected}"
           BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,0,1,1" Padding="10,8">
     <Grid RowDefinitions="28,28,34,34">
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-        <Button Grid.Column="1" Content="×" Classes="track" Command="{Binding Delete}"
+      <Grid ColumnDefinitions="Auto,*">
+        <Button Content="×" Classes="track" Command="{Binding Delete}" Margin="0,0,7,0"
                 a:AutomationProperties.Name="Delete track" ToolTip.Tip="Delete track (undoable)" />
+        <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </Grid>
       <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
         <ToggleButton Content="Mute" Classes="track" IsChecked="{Binding IsMuted, Mode=OneWay}"
@@ -27,18 +27,19 @@
         <ToggleButton Content="Solo" Classes="track" IsChecked="{Binding IsSolo, Mode=OneWay}"
                       Command="{Binding Solo}" a:AutomationProperties.Name="Solo track" />
       </StackPanel>
-      <Grid Grid.Row="2" ColumnDefinitions="42,30,*,30" VerticalAlignment="Center">
+      <Grid Grid.Row="2" ColumnDefinitions="32,*,45" VerticalAlignment="Center">
         <TextBlock Text="Vol" Foreground="{DynamicResource EditorMuted}" VerticalAlignment="Center" FontSize="11" />
-        <Button Grid.Column="1" Content="−" Classes="track" Command="{Binding Quieter}" a:AutomationProperties.Name="Decrease track volume" ToolTip.Tip="Decrease volume by 3 dB" />
-        <TextBlock Grid.Column="2" Text="{Binding GainText}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        <Button Grid.Column="3" Content="+" Classes="track" Command="{Binding Louder}" a:AutomationProperties.Name="Increase track volume" ToolTip.Tip="Increase volume by 3 dB" />
+        <Slider x:Name="VolumeSlider" Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding Volume}"
+                TickFrequency="0.05" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanEdit}"
+                a:AutomationProperties.Name="Track volume" ToolTip.Tip="{Binding VolumeHint}" />
+        <TextBlock Grid.Column="2" Text="{Binding VolumeText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
       </Grid>
-      <Grid Grid.Row="3" ColumnDefinitions="34,28,28,28,*" VerticalAlignment="Center">
+      <Grid Grid.Row="3" ColumnDefinitions="32,*,45" VerticalAlignment="Center">
         <TextBlock Text="Pan" Foreground="{DynamicResource EditorMuted}" VerticalAlignment="Center" FontSize="11" />
-        <Button Grid.Column="1" Content="L" Classes="track" Command="{Binding PanLeft}" a:AutomationProperties.Name="Balance toward left ear" ToolTip.Tip="Move balance 25% left" />
-        <Button Grid.Column="2" Content="C" Classes="track" Command="{Binding PanCenter}" a:AutomationProperties.Name="Center stereo balance" ToolTip.Tip="Center balance" />
-        <Button Grid.Column="3" Content="R" Classes="track" Command="{Binding PanRight}" a:AutomationProperties.Name="Balance toward right ear" ToolTip.Tip="Move balance 25% right" />
-        <TextBlock Grid.Column="4" Text="{Binding PanText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        <Slider x:Name="PanSlider" Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding Pan}"
+                TickFrequency="0.1" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanEdit}"
+                a:AutomationProperties.Name="Track stereo balance" ToolTip.Tip="Left −1 · Center 0 · Right +1" />
+        <TextBlock Grid.Column="2" Text="{Binding BalanceText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
       </Grid>
     </Grid>
   </Border>

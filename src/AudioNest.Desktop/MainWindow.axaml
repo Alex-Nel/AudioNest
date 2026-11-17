@@ -3,52 +3,72 @@
         xmlns:local="using:AudioNest.Desktop"
         xmlns:a="using:Avalonia.Automation"
         x:Class="AudioNest.Desktop.MainWindow" x:DataType="local:MainViewModel"
-        Title="{Binding Title}" Width="1280" Height="800" MinWidth="760" MinHeight="480"
+        Title="{Binding Title}" Width="1280" Height="800" MinWidth="760" MinHeight="480" WindowState="Maximized"
         Background="{DynamicResource EditorBackground}" Foreground="{DynamicResource EditorText}">
   <Grid RowDefinitions="Auto,Auto,*,26">
-    <Menu x:Name="EditorMenuBar" Background="{DynamicResource EditorPanel}" />
-    <Border Grid.Row="1" Padding="12,8" Background="{DynamicResource EditorPanel}"
+    <Menu x:Name="EditorMenuBar" Height="24" Background="{DynamicResource EditorPanel}" />
+    <Border Grid.Row="1" Padding="10,7" Background="{DynamicResource EditorPanel}"
             BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,1,0,1">
-      <WrapPanel Orientation="Horizontal">
-        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,18,0" IsEnabled="{Binding CanEdit}">
-          <Button x:Name="SkipBackButton" Content="|◀" Classes="transport" Click="SkipBackClick" ToolTip.Tip="Skip to start (Home)" a:AutomationProperties.Name="Skip to start" />
-          <Button x:Name="PlayButton" Content="▶ Play" Classes="transport" Click="PlayClick" IsEnabled="{Binding CanPlay}" />
-          <Button x:Name="PauseButton" Content="Ⅱ Pause" Classes="transport" Click="PauseClick" IsEnabled="{Binding CanPause}" />
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <Button x:Name="SkipBackButton" Classes="transport" Click="SkipBackClick" IsEnabled="{Binding CanEdit}" ToolTip.Tip="Skip to start (Home)" a:AutomationProperties.Name="Skip to start">
+            <PathIcon Data="{StaticResource IconBackward}" />
+          </Button>
+          <Button x:Name="PlayButton" Classes="transport" Click="PlayClick" IsEnabled="{Binding CanPlay}" ToolTip.Tip="Play (Space)" a:AutomationProperties.Name="Play">
+            <PathIcon Data="{StaticResource IconPlay}" Foreground="#238544" />
+          </Button>
+          <Button x:Name="PauseButton" Classes="transport" Click="PauseClick" IsEnabled="{Binding CanPause}" ToolTip.Tip="Pause (Space)" a:AutomationProperties.Name="Pause">
+            <PathIcon Data="{StaticResource IconPause}" />
+          </Button>
+          <Button x:Name="StopButton" Classes="transport" Click="StopClick" IsEnabled="{Binding !IsBusy}" ToolTip.Tip="Stop" a:AutomationProperties.Name="Stop">
+            <PathIcon Data="{StaticResource IconStop}" />
+          </Button>
+          <Button x:Name="SkipForwardButton" Classes="transport" Click="SkipForwardClick" IsEnabled="{Binding CanEdit}" ToolTip.Tip="Skip to end (End)" a:AutomationProperties.Name="Skip to end">
+            <PathIcon Data="{StaticResource IconForward}" />
+          </Button>
+          <Button x:Name="RecordButton" Classes="transport" Click="RecordClick" IsEnabled="{Binding CanEdit}" ToolTip.Tip="{Binding RecordLabel}" a:AutomationProperties.Name="Record">
+            <PathIcon Data="{StaticResource IconRecord}" Foreground="#D84040" />
+          </Button>
         </StackPanel>
-        <Button Content="■ Stop" Classes="transport" Click="StopClick" Margin="0,0,5,0" IsEnabled="{Binding !IsBusy}" />
-        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,18,0" IsEnabled="{Binding CanEdit}">
-          <Button x:Name="SkipForwardButton" Content="▶|" Classes="transport" Click="SkipForwardClick" ToolTip.Tip="Skip to end (End)" a:AutomationProperties.Name="Skip to end" />
-          <Button Content="{Binding RecordLabel}" Classes="transport" Click="RecordClick" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="5" IsEnabled="{Binding CanEdit}">
-          <Button Content="Import…" Click="ImportClick" />
-          <Button Content="+ Track" Click="AddTrackClick" />
-        </StackPanel>
-      </WrapPanel>
+        <Border Grid.Column="1" Width="1" Height="34" Margin="10,0" Background="{DynamicResource EditorBorder}" />
+        <WrapPanel x:Name="EditingTools" Grid.Column="2" VerticalAlignment="Center">
+          <Button Content="Import…" Click="ImportClick" IsEnabled="{Binding CanEdit}" Margin="0,2,4,2" />
+          <Button Content="+ Track" Click="AddTrackClick" IsEnabled="{Binding CanEdit}" Margin="0,2,8,2" />
+          <ToggleButton x:Name="SnapButton" Content="Snap" IsChecked="{Binding IsSnappingEnabled}" Margin="0,2,4,2"
+                        ToolTip.Tip="Snap clip edges (Alt bypasses clip snapping)" />
+          <Button x:Name="ZoomOutButton" Width="32" Padding="7" Click="ZoomOutClick" Margin="0,2,4,2" ToolTip.Tip="Zoom out around playhead (left Alt + wheel)" a:AutomationProperties.Name="Zoom out">
+            <PathIcon Data="{StaticResource IconZoomOut}" />
+          </Button>
+          <Button x:Name="ZoomInButton" Width="32" Padding="7" Click="ZoomInClick" Margin="0,2,4,2" ToolTip.Tip="Zoom in around playhead (left Alt + wheel)" a:AutomationProperties.Name="Zoom in">
+            <PathIcon Data="{StaticResource IconZoomIn}" />
+          </Button>
+          <Button Content="Fit" Click="FitClick" Margin="0,2,4,2" ToolTip.Tip="Fit project to available width" />
+        </WrapPanel>
+        <Border Grid.Column="3" Width="1" Height="34" Margin="10,0" Background="{DynamicResource EditorBorder}" />
+        <Grid x:Name="LiveMeters" Grid.Column="4" Width="184" RowDefinitions="18,18" ColumnDefinitions="18,*,54" VerticalAlignment="Center">
+          <PathIcon Data="{StaticResource IconSpeaker}" Width="13" Height="13" ToolTip.Tip="Timeline playback" />
+          <local:AudioMeterControl x:Name="OutputMeter" Grid.Column="1" Height="7" Level="{Binding OutputLevel}" VerticalAlignment="Center"
+                                   ToolTip.Tip="{Binding OutputMeterText}" a:AutomationProperties.Name="Timeline output peak meter" />
+          <TextBlock Grid.Column="2" Text="{Binding OutputDecibels}" FontSize="9" VerticalAlignment="Center" HorizontalAlignment="Right" />
+          <PathIcon Grid.Row="1" Data="{StaticResource IconMic}" Width="13" Height="13" ToolTip.Tip="Microphone (recording only)" />
+          <local:AudioMeterControl x:Name="InputMeter" Grid.Row="1" Grid.Column="1" Height="7" Level="{Binding InputLevel}" VerticalAlignment="Center"
+                                   ToolTip.Tip="{Binding InputMeterText}" a:AutomationProperties.Name="Recording microphone peak meter" />
+          <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding InputDecibels}" FontSize="9" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        </Grid>
+      </Grid>
     </Border>
-    <Grid x:Name="EditorBody" Grid.Row="2" ColumnDefinitions="*,240">
-      <Grid RowDefinitions="Auto,32,*,Auto" MinWidth="0">
-        <Border Background="{DynamicResource EditorPanel}" Padding="12,6" BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,0,0,1">
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Text="TIMELINE" Classes="section" VerticalAlignment="Center" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
-              <ToggleButton x:Name="SnapButton" Content="Snap" IsChecked="{Binding IsSnappingEnabled}"
-                            ToolTip.Tip="Snap clip edges to the playhead and other clips (Alt temporarily bypasses)" />
-              <Button Content="−" Click="ZoomOutClick" ToolTip.Tip="Zoom out" a:AutomationProperties.Name="Zoom out" />
-              <Button Content="+" Click="ZoomInClick" ToolTip.Tip="Zoom in" a:AutomationProperties.Name="Zoom in" />
-              <Button Content="Fit" Click="FitClick" ToolTip.Tip="Fit project to available width" />
-            </StackPanel>
-          </Grid>
-        </Border>
-        <Grid Grid.Row="1" ColumnDefinitions="228,*" Background="{DynamicResource EditorPanel}">
+    <Grid x:Name="EditorBody" Grid.Row="2" ColumnDefinitions="*,5,280">
+      <Grid x:Name="TimelineArea" RowDefinitions="32,*,Auto" MinWidth="0">
+        <Grid ColumnDefinitions="228,*" Background="{DynamicResource EditorPanel}">
           <Border BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,0,1,1">
             <TextBlock Text="TRACKS" Classes="section" Margin="12,0" VerticalAlignment="Center" />
           </Border>
           <ScrollViewer x:Name="RulerScroll" Grid.Column="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
-            <local:TimelineRulerControl x:Name="TimelineRuler" Width="{Binding TimelineWidth}" Height="32" />
+            <local:TimelineRulerControl x:Name="TimelineRuler" Width="{Binding TimelineWidth}" Height="32"
+                                        ToolTip.Tip="Drag to seek · left Shift snaps to clip boundaries" />
           </ScrollViewer>
         </Grid>
-        <ScrollViewer x:Name="TracksVerticalScroll" Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="TracksVerticalScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
           <Grid ColumnDefinitions="228,*" Background="{DynamicResource EditorPanel}">
             <ItemsControl ItemsSource="{Binding TrackHeaders}">
               <ItemsControl.ItemTemplate>
@@ -65,42 +85,20 @@
             </ScrollViewer>
           </Grid>
         </ScrollViewer>
-        <Grid Grid.Row="3" ColumnDefinitions="228,*" Background="{DynamicResource EditorPanel}">
+        <Grid Grid.Row="2" ColumnDefinitions="228,*" Background="{DynamicResource EditorPanel}">
           <ScrollBar x:Name="TimelineHorizontalBar" Grid.Column="1" Orientation="Horizontal" />
         </Grid>
       </Grid>
-      <Border x:Name="Inspector" Grid.Column="1" Background="{DynamicResource EditorPanel}"
-              BorderBrush="{DynamicResource EditorBorder}" BorderThickness="1,0,0,0" Padding="16">
-        <ScrollViewer>
-          <StackPanel Spacing="12" IsEnabled="{Binding CanEdit}">
-            <TextBlock Text="CLIP INSPECTOR" Classes="section" />
-            <TextBlock Text="{Binding SelectionText}" TextWrapping="Wrap" LineHeight="22" />
-            <TextBlock Text="Clip gain" Foreground="{DynamicResource EditorMuted}" FontSize="12" />
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <Button Content="−3 dB" Click="ClipQuieterClick" IsEnabled="{Binding HasSelectedClip}" />
-              <Button Content="+3 dB" Click="ClipLouderClick" IsEnabled="{Binding HasSelectedClip}" />
-            </StackPanel>
-            <Button Content="Toggle clip limiter" Click="ClipLimiterClick" IsEnabled="{Binding HasSelectedClip}" />
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <Button Content="← 0.1 s" Click="NudgeLeftClick" />
-              <Button Content="0.1 s →" Click="NudgeRightClick" />
-            </StackPanel>
-            <Button Content="Split at playhead" Click="SplitClick" IsEnabled="{Binding HasSelectedClip}" />
-            <Button Content="Delete clip" Click="DeleteClick" IsEnabled="{Binding HasSelectedClip}" />
-            <Border Height="1" Background="{DynamicResource EditorBorder}" Margin="0,4" />
-            <TextBlock Text="TRACK" Classes="section" />
-            <TextBlock Text="{Binding TrackText}" TextWrapping="Wrap" />
-            <Button Content="Toggle track limiter" Click="TrackLimiterClick" IsEnabled="{Binding HasSelectedTrack}" />
-            <Border Height="1" Background="{DynamicResource EditorBorder}" Margin="0,4" />
-            <TextBlock Text="Drag the ruler to position the playhead. Select and drag clips without moving it. Hold Alt while dragging to ignore snapping."
-                       TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" FontSize="12" LineHeight="20" />
-          </StackPanel>
-        </ScrollViewer>
+      <GridSplitter x:Name="InspectorSplitter" Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource EditorBorder}"
+                    a:AutomationProperties.Name="Resize clip inspector" />
+      <Border x:Name="Inspector" Grid.Column="2" Background="{DynamicResource EditorPanel}">
+        <local:ClipInspectorView DataContext="{Binding Inspector}" />
       </Border>
     </Grid>
     <Border Grid.Row="3" Padding="10,2" Background="{DynamicResource EditorPanel}" BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,1,0,0">
       <Grid ColumnDefinitions="*,Auto,Auto">
-        <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" FontSize="11" VerticalAlignment="Center" ToolTip.Tip="{Binding Status}" />
+        <TextBlock Text="{Binding StatusBarText}" TextTrimming="CharacterEllipsis" FontSize="11" VerticalAlignment="Center" ToolTip.Tip="{Binding Status}" />
         <TextBlock Grid.Column="1" Text="{Binding PositionText}" FontFamily="monospace" FontSize="12" Margin="16,0" VerticalAlignment="Center" />
         <TextBlock Grid.Column="2" Text="{Binding PositionFramesText}" FontSize="11" Foreground="{DynamicResource EditorMuted}" VerticalAlignment="Center" />
       </Grid>

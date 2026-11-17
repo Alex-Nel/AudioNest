@@ -15,6 +15,8 @@ public partial class MainWindow : Window
     private bool _allowClose;
     private bool _confirmingClose;
     private bool _synchronizingScroll;
+    private double _inspectorWidth = 280;
+    private bool _altZoomUsed;
     private static readonly FilePickerFileType ProjectType = new("AudioNest project") { Patterns = ["*.audionest"] };
     private static readonly FilePickerFileType AudioType = new("Audio files") { Patterns = ["*.wav", "*.mp3", "*.flac"] };
     private static readonly FilePickerFileType WaveType = new("WAV audio") { Patterns = ["*.wav"] };
@@ -31,6 +33,8 @@ public partial class MainWindow : Window
         _vm.PropertyChanged += OnViewModelChanged;
         ApplyTheme();
         SizeChanged += (_, _) => UpdateResponsiveLayout();
+        InspectorSplitter.DragCompleted += (_, _) => _inspectorWidth = EditorBody.ColumnDefinitions[2].ActualWidth;
+        TimelineArea.AddHandler(PointerWheelChangedEvent, OnTimelineWheel, RoutingStrategies.Tunnel);
         TimelineScroll.ScrollChanged += (_, _) => SynchronizeTimeline();
         RulerScroll.ScrollChanged += (_, _) =>
         {
@@ -54,6 +58,8 @@ public partial class MainWindow : Window
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Background, (_, _) => vm.Tick());
         _timer.Start();
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, OnKeyUp, RoutingStrategies.Tunnel, true);
+        Deactivated += (_, _) => { _vm.IsLeftAltDown = _vm.IsLeftShiftDown = false; _altZoomUsed = false; };
         Closing += OnClosing;
         Closed += (_, _) => { _timer.Stop(); _vm.PropertyChanged -= OnViewModelChanged; };
     }
@@ -74,7 +80,65 @@ public partial class MainWindow : Window
     {
         var showInspector = Bounds.Width >= 1100;
         Inspector.IsVisible = showInspector;
-        EditorBody.ColumnDefinitions[1].Width = new GridLength(showInspector ? 240 : 0);
+        InspectorSplitter.IsVisible = showInspector;
+        var column = EditorBody.ColumnDefinitions[2];
+        column.MinWidth = showInspector ? 200 : 0;
+        column.MaxWidth = showInspector ? Math.Min(520, Math.Max(200, Bounds.Width - 600)) : 0;
+        column.Width = new GridLength(showInspector ? Math.Clamp(_inspectorWidth, column.MinWidth, column.MaxWidth) : 0);
+        EditorBody.ColumnDefinitions[1].Width = new GridLength(showInspector ? 5 : 0);
+        EditorBody.ColumnDefinitions[0].MinWidth = showInspector ? 560 : 0;
+    }
+
+    public void ZoomAroundPlayhead(double multiplier)
+    {
+        var frame = _vm.Position;
+        var screenX = (double)frame / _vm.Project.SampleRate * _vm.PixelsPerSecond - TimelineScroll.Offset.X;
+        if (screenX < 0 || screenX > TimelineScroll.Viewport.Width) screenX = TimelineScroll.Viewport.Width / 2;
+        _vm.Zoom(multiplier);
+        // Apply the new extent before assigning Offset, otherwise ScrollViewer
+        // would clamp the requested anchor against the previous zoom's extent.
+        UpdateLayout();
+        var offset = (double)frame / _vm.Project.SampleRate * _vm.PixelsPerSecond - screenX;
+        TimelineScroll.Offset = new Vector(Math.Max(0, offset), 0);
+        SynchronizeTimeline();
+    }
+    private void OnTimelineWheel(object? sender, PointerWheelEventArgs e)
+    {
+        if (_vm.IsLeftAltDown && e.Delta.Y != 0)
+        {
+            ZoomAroundPlayhead(Math.Pow(1.2, Math.Clamp(e.Delta.Y, -8, 8)));
+            _altZoomUsed = true;
+        }
+        else
+        {
+            // Hidden synchronized scroll viewers do not provide native wheel
+            // fallback. Scroll tracks vertically when possible, otherwise pan time.
+            var vertical = Math.Max(0, TracksVerticalScroll.Extent.Height - TracksVerticalScroll.Viewport.Height);
+            var overRuler = e.GetPosition(TimelineArea).Y < TimelineMetrics.RulerHeight;
+            if (e.Delta.X == 0 && vertical > 0 && !overRuler && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                TracksVerticalScroll.Offset = new Vector(0, Math.Clamp(TracksVerticalScroll.Offset.Y - e.Delta.Y * 48, 0, vertical));
+            else
+            {
+                var delta = e.Delta.X != 0 ? e.Delta.X : e.Delta.Y;
+                var maximum = Math.Max(0, TimelineScroll.Extent.Width - TimelineScroll.Viewport.Width);
+                TimelineScroll.Offset = new Vector(Math.Clamp(TimelineScroll.Offset.X - delta * 48, 0, maximum), 0);
+            }
+        }
+        e.Handled = true;
+    }
+    private static bool LeftAlt(KeyEventArgs e) => e.PhysicalKey == PhysicalKey.None
+        ? e.Key == Key.LeftAlt : e.PhysicalKey == PhysicalKey.AltLeft;
+    private static bool LeftShift(KeyEventArgs e) => e.PhysicalKey == PhysicalKey.None
+        ? e.Key == Key.LeftShift : e.PhysicalKey == PhysicalKey.ShiftLeft;
+    private void OnKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (LeftAlt(e))
+        {
+            _vm.IsLeftAltDown = false;
+            if (_altZoomUsed) e.Handled = true;
+            _altZoomUsed = false;
+        }
+        if (LeftShift(e)) _vm.IsLeftShiftDown = false;
     }
     private void SynchronizeTimeline()
     {
@@ -186,8 +250,8 @@ public partial class MainWindow : Window
     private void RedoClick(object? sender, RoutedEventArgs e) => _vm.Redo();
     private void SplitClick(object? sender, RoutedEventArgs e) => _vm.Split();
     private void DeleteClick(object? sender, RoutedEventArgs e) => _vm.Delete();
-    private void ZoomInClick(object? sender, RoutedEventArgs e) => _vm.Zoom(1.4);
-    private void ZoomOutClick(object? sender, RoutedEventArgs e) => _vm.Zoom(1 / 1.4);
+    private void ZoomInClick(object? sender, RoutedEventArgs e) => ZoomAroundPlayhead(1.4);
+    private void ZoomOutClick(object? sender, RoutedEventArgs e) => ZoomAroundPlayhead(1 / 1.4);
     private void FitClick(object? sender, RoutedEventArgs e) { _vm.FitProject(); TimelineScroll.Offset = default; }
     private void ClipQuieterClick(object? sender, RoutedEventArgs e) => _vm.ApplyGain(-3, false);
     private void ClipLouderClick(object? sender, RoutedEventArgs e) => _vm.ApplyGain(3, false);
@@ -198,6 +262,8 @@ public partial class MainWindow : Window
 
     private async void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        if (LeftAlt(e)) _vm.IsLeftAltDown = true;
+        if (LeftShift(e)) _vm.IsLeftShiftDown = true;
         if (e.Handled || e.Source is TextBox || !_vm.CanEdit) return;
         var control = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
         if (control && e.Key == Key.S) await SaveAsync(e.KeyModifiers.HasFlag(KeyModifiers.Shift));

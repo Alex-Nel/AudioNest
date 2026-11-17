@@ -7,6 +7,8 @@ namespace AudioNest.Desktop;
 public sealed class TrackHeaderViewModel : INotifyPropertyChanged
 {
     private readonly MainViewModel _owner;
+    private double? _previewVolume;
+    private double? _previewPan;
     public TrackHeaderViewModel(MainViewModel owner, Guid id)
     {
         _owner = owner;
@@ -29,6 +31,35 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
     public bool CanEdit => _owner.CanEdit;
     public string GainText => $"{20 * Math.Log10(Math.Max(0.0001, Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1)):0.0} dB";
     public string PanText => Track.Pan == 0 ? "Center" : $"{(Track.Pan < 0 ? "L" : "R")} {Math.Abs(Track.Pan):P0}";
+    public double Volume
+    {
+        get => _previewVolume ?? Math.Clamp(Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1, 0, 2);
+        set
+        {
+            if (!_owner.CanEdit || !double.IsFinite(value)) return;
+            value = Math.Clamp(value, 0, 2);
+            if (Math.Abs(value - Volume) < 0.00001) return;
+            if (_previewVolume.HasValue) { _previewVolume = value; PreviewChanged(); }
+            else _owner.SetTrackVolume(Id, (float)value);
+        }
+    }
+    public double Pan
+    {
+        get => _previewPan ?? Track.Pan;
+        set
+        {
+            if (!_owner.CanEdit || !double.IsFinite(value)) return;
+            value = Math.Clamp(value, -1, 1);
+            if (Math.Abs(value - Pan) < 0.00001) return;
+            if (_previewPan.HasValue) { _previewPan = value; PreviewChanged(); }
+            else _owner.SetTrackPan(Id, (float)value);
+        }
+    }
+    public string VolumeText => $"{_previewVolume ?? Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1:0.00}×";
+    public string VolumeHint => _previewVolume is null && (Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1) > 2
+        ? "Saved gain exceeds 2×. Moving this slider sets a new volume within 0–2×."
+        : "Volume: 0 is silence, 1 is original, 2 is twice the amplitude";
+    public string BalanceText => Math.Abs(Pan) < 0.001 ? "C" : $"{(Pan < 0 ? "L" : "R")} {Math.Abs(Pan):P0}";
     public UiCommand Mute { get; }
     public UiCommand Solo { get; }
     public UiCommand Delete { get; }
@@ -44,6 +75,21 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
         action();
     }, () => _owner.CanEdit);
     public void Select() => _owner.Select(Id, null);
+    public void BeginVolumeAdjustment() { if (_owner.CanEdit) { Select(); _previewVolume = Volume; } }
+    public void BeginPanAdjustment() { if (_owner.CanEdit) { Select(); _previewPan = Pan; } }
+    public void EndAdjustment()
+    {
+        var volume = _previewVolume;
+        var pan = _previewPan;
+        _previewVolume = _previewPan = null;
+        if (_owner.Project.Tracks.Any(t => t.Id == Id) && _owner.CanEdit)
+        {
+            if (volume is { } v) _owner.SetTrackVolume(Id, (float)v);
+            if (pan is { } p) _owner.SetTrackPan(Id, (float)p);
+        }
+        PreviewChanged();
+    }
+    private void PreviewChanged() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     public void Refresh()
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));

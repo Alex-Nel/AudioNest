@@ -30,7 +30,7 @@ public sealed class DesktopTests
         var source = TestProjects.WriteWave(directory.Path);
         using var backend = new FakeBackend();
         using var vm = Create(backend, Path.Combine(directory.Path, "workspace"));
-        var window = new MainWindow(vm);
+        var window = new MainWindow(vm) { WindowState = Avalonia.Controls.WindowState.Normal };
         window.Show();
         Assert.True(window.IsVisible);
         await vm.ImportAsync(source);
