@@ -34,6 +34,7 @@ Microphone capture needs OS permission and an available default input device.
 4. Use track-header **Mute / Solo**, the volume and stereo-balance sliders,
    and **×** beside the name (undoable track deletion). Clip effects are in the inspector; all
    clip/track effects are also in the **Effects** menu. Split first to process a segment.
+   Track controls update the playing mix without stopping or reopening the output.
 5. **Save** a `.audionest` project; **File → Export…** opens destination/Browse and
    format options for WAV (PCM16), MP3, AAC (ADTS), OGG (Vorbis), or FLAC.
    Export renders the same stereo mix as playback.
@@ -41,6 +42,8 @@ Microphone capture needs OS permission and an available default input device.
 **Space** toggles playback, **Home / End** skip to the start/end, **Ctrl/Cmd+S** saves,
 **Ctrl/Cmd+Shift+S** saves as, **Ctrl/Cmd+Z** undoes, and **Ctrl/Cmd+Shift+Z**
 or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
+In the editor, **Space** controls transport rather than activating a focused
+button or checkbox; text fields still accept spaces normally.
 **Ctrl/Cmd+C / X / V** copy, cut, and paste selected clips; keyboard/menu paste
 uses the selected track and playhead. Right-click paste/split uses the clicked time.
 
@@ -82,10 +85,12 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   increments; pan ranges from −1 to +1.
   Existing saved gains above 2× are preserved and labeled; moving the volume
   slider chooses a new value within 0–2×.
+  Slider drags preview the live mix before committing on release.
 - Track pan is **stereo balance**: center leaves both channels unchanged; moving
   toward one ear attenuates the opposite channel. It is saved with the project
   and used identically in playback and every export format. Mono tracks cannot pan.
 - Right-click an existing track header to **Rename track…** (undoable and saved).
+  The same menu offers **Delete track**; the × button does the same operation.
   Drag the thin grip at the bottom of a header to resize that row between
   **164 and 600 px**. Track heights are session-local and do not dirty the project.
 - Two skinny toolbar meters show actual timeline output (speaker) and microphone
@@ -95,6 +100,16 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   Drag the divider beside this section to resize it (140–360 px, subject to window size).
 
 ### Editing behavior
+
+- The inspector begins with a permanent **Global properties** section: edit the
+  primary clip's name and timeline start, then **Apply properties** in one undoable
+  edit. Length/source offset are read-only here; trim in the timeline to change
+  its source region. Clip actions and nudges remain in this section.
+- Each clip effect has its own section, in processing order, with parameter controls,
+  an Enabled/bypass checkbox, and a remove button. **Add gain / Add limiter** append
+  independent instances (including repeated kinds). Gain controls amplitude; the
+  limiter controls its ceiling. Parameter drags preview audio and commit one undo
+  step. Removing/bypassing/editing a section affects only that effect instance.
 
 - Edge trimming is non-destructive and source-bounded. Expanding reveals the
   original audio and waveform; it never repeats, stretches, or invents samples.

@@ -5,7 +5,7 @@
 | Multitrack timeline with waveforms | Implemented; grouped selection/dragging, rename, resizable tracks |
 | Split/delete/move shortcuts | Implemented; razor, edge trims, cut/copy/paste, and context menus |
 | Non-destructive editing | Implemented; shared sources and bounded undo/redo |
-| Clip, segment, and track effects | Gain/hard limiter; segments are independent split clips |
+| Clip, segment, and track effects | Gain/hard limiter; typed removable clip-editor sections, permanent global properties; split clips define segments |
 | Noise reduction/compressor/normalizer/reverb/echo/distortion | Not implemented |
 | Independent pitch, tempo, speed | Not implemented |
 | VST 2.x / 3.x | Not implemented; ABI/licensing/isolation design still needed |
@@ -15,7 +15,7 @@
 | Multiple formats/rates | WAV/MP3/FLAC through MiniAudio; AAC/M4A/OGG through FFmpeg; normalized to project rate |
 | Multiple output codecs | Export options for WAV PCM16, MP3, AAC/ADTS, OGG/Vorbis, FLAC |
 | Avalonia / C# / four layers | Implemented |
-| Decoupled playhead | Device-frame transport clock plus independent UI overlay |
+| Decoupled playhead | Device-frame clock; live graph handoff keeps track controls from stopping playback |
 | Ahead-of-time compilation possible | Windows x64 Native AOT verified; other RIDs pending |
 
 ## Suggested sequence

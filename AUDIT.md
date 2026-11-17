@@ -395,3 +395,63 @@ Further implementation and verification entries are appended below.
   the AOT executable, independent-player listening checks, and non-Windows
   deployment remain manual acceptance. Live preview tests use synthetic capture.
 - `TODO.txt` was left unchanged. No commits or pushes were created.
+
+## 2026-11-17 — Playback-safe track controls and extensible inspector
+
+- Read the three new TODO points from a clean working tree.
+- Remove "undoable" from the delete tooltip and add header-context track deletion.
+- Keep playback/device position running across track control changes via a prepared
+  graph handoff, and reserve Space key-down/up for transport outside text inputs.
+- Replace flat inspector effect rows with ordered, removable typed effect editors
+  and a permanent global-properties section (name/start; source region read-only).
+- Changed the × tooltip to "Delete track"; existing-header context menus now
+  include captured-target Delete track, retaining undo/media safety.
+- Added `AudioTransport.UpdatePlan`: freshly prepared same-format graphs are
+  atomically published; each callback holds its own graph reference. In-flight
+  callbacks finish the old graph; later callbacks use the new one without pausing,
+  rewinding, stopping, or reopening the output device. Format changes are rejected.
+  Removing all/remaining audio ends naturally without moving the edit cursor back.
+- Track mute/solo/volume/pan/gain/limiter/rename/delete use the live path. Slider
+  previews are audible before release, retain 5% steps, and commit one history edit.
+  Structural clip edits and undo/redo still pause deliberately. No callback locks,
+  allocation, native I/O, UI calls, or graph mutation were introduced.
+- Space key-down and key-up are intercepted in the editor before buttons or
+  checkboxes can activate; repeated key-down does not repeatedly toggle transport.
+  Text-box descendants retain text-entry spaces, and modal dialogs retain normal
+  keyboard behavior. Window deactivation clears held-key state.
+- Added `ClipPropertiesViewModel` for draft clip name/timeline-start metadata,
+  validated and applied together as one edit. Length/source offset stay read-only
+  here; existing source-bounded timeline trims remain authoritative. The permanent
+  global section retains nudges/split/delete and cannot be removed.
+- Added an explicit AOT-safe `ClipEffectEditorFactory` with typed gain/limiter
+  models/templates, an ordered stable collection, per-instance enabled/bypass and
+  removal, independent parameters, and explicit add buttons. Duplicate effect kinds
+  retain separate controls and processing order. The section base does not assume
+  any particular parameter count; the one-parameter preview helper is optional for
+  future effects. Commands guard captured clip/index/effect identity and detached
+  editors cannot edit a replacement at their former index. Detached previews
+  restore the current project mix rather than leaving transient audio behind.
+- Updated README, architecture/extension guidance, feature status, and acceptance
+  checklist. Documented that live swaps recreate current stateless processors:
+  smoothing/stateful transition and native processor retirement remain future DSP
+  requirements. Project format remains v2; no persisted fields or packages changed.
+- Added nine regressions covering output-device/clock continuity, callback allocation,
+  in-flight cross-thread publication, format rejection, live track controls, actual
+  button focus + Space down/repeat/up, text-entry spaces, context deletion/tooltip,
+  independent/duplicate effect edits, stale editors, global drafts/validation,
+  save/open/history, typed controls, live/canceled previews, and actual slider drags.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **76 passed, 0 failed,
+  0 skipped**, without build warnings/errors.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git diff --check`: passed.
+- Windows x64 Native AOT publish succeeded without warnings. Native main-window
+  startup/normal-close smoke check exited with code 0.
+- Inspected the populated inspector-sections capture under ignored test
+  `ui-artifacts/`; global properties, individual effect controls, bypass state, and
+  removal buttons render correctly.
+- No physical playback/recording was activated. Audible transition acceptance,
+  non-Windows execution, and platform-native keyboard/menu checks remain manual.
+- `TODO.txt` was not changed. No commits or pushes were created.

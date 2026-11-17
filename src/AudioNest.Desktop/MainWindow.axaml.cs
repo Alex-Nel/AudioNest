@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 
 namespace AudioNest.Desktop;
 
@@ -18,6 +19,7 @@ public partial class MainWindow : Window
     private double _inspectorWidth = 280;
     private double _meterWidth = 184;
     private bool _altZoomUsed;
+    private bool _spacePressed;
     private static readonly FilePickerFileType ProjectType = new("AudioNest project") { Patterns = ["*.audionest"] };
     private static readonly FilePickerFileType AudioType = new("Audio files") { Patterns = ["*.wav", "*.mp3", "*.aac", "*.m4a", "*.ogg", "*.oga", "*.flac"] };
 
@@ -54,6 +56,8 @@ public partial class MainWindow : Window
                     ToggleType = MenuItemToggleType.CheckBox,
                     IsChecked = track.Muted
                 });
+                menu.Items.Add(new Separator());
+                menu.Items.Add(new MenuItem { Header = "Delete track", Command = new UiCommand(() => _vm.DeleteTrack(track.Id)) });
                 TrackHeadersPanel.ContextMenu = menu;
             }
             else TrackHeadersPanel.ContextMenu = TimelineContextMenus.TrackCreation(_vm);
@@ -84,7 +88,7 @@ public partial class MainWindow : Window
         _timer.Start();
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnKeyUp, RoutingStrategies.Tunnel, true);
-        Deactivated += (_, _) => { _vm.IsLeftAltDown = _vm.IsLeftShiftDown = false; _altZoomUsed = false; };
+        Deactivated += (_, _) => { _vm.IsLeftAltDown = _vm.IsLeftShiftDown = false; _altZoomUsed = _spacePressed = false; };
         Closing += OnClosing;
         Closed += (_, _) => { _timer.Stop(); _vm.PropertyChanged -= OnViewModelChanged; };
     }
@@ -192,6 +196,12 @@ public partial class MainWindow : Window
         ? e.Key == Key.LeftShift : e.PhysicalKey == PhysicalKey.ShiftLeft;
     private void OnKeyUp(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Space)
+        {
+            _spacePressed = false;
+            // Buttons activate on key-up, even if key-down was handled by transport.
+            if (!IsTextInput(e.Source)) e.Handled = true;
+        }
         if (LeftAlt(e))
         {
             _vm.IsLeftAltDown = false;
@@ -200,6 +210,8 @@ public partial class MainWindow : Window
         }
         if (LeftShift(e)) _vm.IsLeftShiftDown = false;
     }
+    private static bool IsTextInput(object? source) => source is TextBox ||
+        source is Visual visual && visual.GetVisualAncestors().Any(v => v is TextBox);
     private void SynchronizeTimeline()
     {
         if (_synchronizingScroll) return;
@@ -324,7 +336,14 @@ public partial class MainWindow : Window
     {
         if (LeftAlt(e)) _vm.IsLeftAltDown = true;
         if (LeftShift(e)) _vm.IsLeftShiftDown = true;
-        if (e.Handled || e.Source is TextBox || !_vm.CanEdit) return;
+        if (e.Key == Key.Space && !IsTextInput(e.Source))
+        {
+            e.Handled = true;
+            if (!_spacePressed && e.KeyModifiers == KeyModifiers.None && _vm.CanEdit) _vm.Play();
+            _spacePressed = true;
+            return;
+        }
+        if (e.Handled || IsTextInput(e.Source) || !_vm.CanEdit) return;
         var control = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
         if (control && e.Key == Key.S) await SaveAsync(e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         else if (control && e.Key == Key.N) await NewProjectAsync();
@@ -338,7 +357,6 @@ public partial class MainWindow : Window
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) _vm.Redo(); else _vm.Undo();
         }
         else if (control && e.Key == Key.Y) _vm.Redo();
-        else if (e.Key == Key.Space) _vm.Play();
         else if (e.Key == Key.S && !control) _vm.Split();
         else if (e.Key == Key.V && !control) _vm.SetTool(TimelineTool.Selection);
         else if (e.Key == Key.C && !control) _vm.SetTool(TimelineTool.Razor);

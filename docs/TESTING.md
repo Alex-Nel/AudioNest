@@ -56,6 +56,7 @@ Use disposable test material first:
   cut/copy/paste, delete, and undo each operation. Relative timing/track spacing
   must survive, including movement against zero time and the first/last track.
 - Rename through an existing header's context menu, undo/redo, save/reopen.
+  Delete a different, right-clicked track through the same menu and undo it.
   Drag its bottom grip to the 164/600 px limits; verify all later headers, clips,
   hit targets, and live recording drafts remain aligned when scrolled.
 - Right-click blank track space with/without clipboard content and verify only
@@ -75,6 +76,18 @@ Use disposable test material first:
   Keyboard slider steps should work in 5% increments; thumbs should not clip.
   Undo deletion,
   save/open balance, and compare stereo-channel results in playback/export.
+- Repeat track mute/solo/volume/pan/rename/delete while playing: position must
+  continue and the audio device must not stop/reopen. Slider previews should be
+  audible before release; each drag commits one undoable edit. Removing the final
+  audio naturally ends playback without rewinding the cursor.
+- After clicking track, toolbar, and inspector buttons/checkboxes, press and release
+  Space repeatedly. Only playback should toggle, not the focused control. Hold
+  Space to check key-repeat suppression; spaces in editable names still work.
+- In the inspector, edit name/start together, apply, undo/redo, save/reopen. Reject
+  empty names/negative starts. Add repeated gain/limiter sections, adjust each
+  independently, bypass/remove one, and undo. Check processing order, parameter
+  persistence, focus stability, live drag preview, one undo per drag, and scrolling
+  at the narrowest inspector width. The global section must not be removable.
 - Drag the inspector divider to both limits, shrink/restore the window, and
   verify remembered width and timeline/ruler alignment. Change clip selection and
   confirm status text and inspector metadata/effect rows follow the selection.

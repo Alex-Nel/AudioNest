@@ -43,7 +43,12 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
             if (!_owner.CanEdit || !double.IsFinite(value)) return;
             value = Math.Round(Math.Clamp(value, 0, 2) / 0.05, MidpointRounding.AwayFromZero) * 0.05;
             if (Math.Abs(value - Volume) < 0.00001) return;
-            if (_previewVolume.HasValue) { _previewVolume = value; PreviewChanged(); }
+            if (_previewVolume.HasValue)
+            {
+                _previewVolume = value;
+                _owner.PreviewTrackMix(Id, _previewVolume, _previewPan);
+                PreviewChanged();
+            }
             else _owner.SetTrackVolume(Id, (float)value);
         }
     }
@@ -55,7 +60,12 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
             if (!CanPan || !double.IsFinite(value)) return;
             value = Math.Round(Math.Clamp(value, -1, 1) / 0.05, MidpointRounding.AwayFromZero) * 0.05;
             if (Math.Abs(value - Pan) < 0.00001) return;
-            if (_previewPan.HasValue) { _previewPan = value; PreviewChanged(); }
+            if (_previewPan.HasValue)
+            {
+                _previewPan = value;
+                _owner.PreviewTrackMix(Id, _previewVolume, _previewPan);
+                PreviewChanged();
+            }
             else _owner.SetTrackPan(Id, (float)value);
         }
     }

@@ -37,6 +37,7 @@ internal sealed class FakeBackend : IAudioBackend
     public FakeOutput? Output { get; private set; }
     public bool FailDecode { get; set; }
     public bool FailOutput { get; set; }
+    public int OutputOpens { get; private set; }
     public int RecordingStops { get; private set; }
     public int DecodedFrames { get; set; } = 10;
     public FakeRecording? Recording { get; private set; }
@@ -51,6 +52,7 @@ internal sealed class FakeBackend : IAudioBackend
     public IAudioOutput OpenOutput(PcmFormat format, RenderAudio render, string? deviceId = null)
     {
         if (FailOutput) throw new InvalidOperationException("Test device unavailable.");
+        OutputOpens++;
         return Output = new FakeOutput(render);
     }
     public IAudioRecording StartRecording(PcmFormat format, string path, string? deviceId = null)
@@ -65,12 +67,14 @@ internal sealed class FakeBackend : IAudioBackend
     public sealed class FakeOutput(RenderAudio render) : IAudioOutput
     {
         public bool Started { get; private set; }
+        public int Stops { get; private set; }
         public void Start() => Started = true;
-        public void Stop() => Started = false;
+        public void Stop() { Started = false; Stops++; }
+        public void Pull(Span<float> output) { output.Clear(); if (Started) render(output); }
         public float[] Pull(int frames)
         {
             var output = new float[frames * 2];
-            if (Started) render(output);
+            Pull(output);
             return output;
         }
         public void Dispose() => Stop();

@@ -26,7 +26,7 @@
     <Grid RowDefinitions="28,28,40,40">
       <Grid ColumnDefinitions="Auto,*">
         <Button Content="×" Classes="track" Command="{Binding Delete}" Margin="0,0,7,0"
-                a:AutomationProperties.Name="Delete track" ToolTip.Tip="Delete track (undoable)" />
+                a:AutomationProperties.Name="Delete track" ToolTip.Tip="Delete track" />
         <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </Grid>
       <Grid Grid.Row="1" ColumnDefinitions="*,Auto">

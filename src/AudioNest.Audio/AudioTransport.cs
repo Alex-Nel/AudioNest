@@ -27,9 +27,18 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
         Pause();
         _output?.Dispose();
         _output = null;
-        _plan = plan;
+        Volatile.Write(ref _plan, plan);
         // The edit cursor may be in silent timeline space. Rebuilding after a
         // cut/trim/delete must not silently relocate the next paste or recording.
+    }
+
+    /// <summary>Publish a freshly prepared same-format graph at the next callback.
+    /// Never mutate or render the published graph from the control thread.</summary>
+    public void UpdatePlan(RenderPlan plan)
+    {
+        if (_plan is { } current && plan.Format != current.Format)
+            throw new ArgumentException("Live plan updates must preserve the output format.", nameof(plan));
+        Volatile.Write(ref _plan, plan);
     }
 
     public void Play()
@@ -72,9 +81,15 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
 
     private void Render(Span<float> output)
     {
-        var plan = _plan;
+        var plan = Volatile.Read(ref _plan);
         if (!IsPlaying || plan is null) { output.Clear(); return; }
         var position = Position;
+        if (position >= plan.Duration)
+        {
+            output.Clear();
+            Volatile.Write(ref _playing, 0);
+            return;
+        }
         plan.Render(position, output);
         OutputMeter.Measure(output);
         var next = Math.Min(plan.Duration, position + output.Length / plan.Format.Channels);

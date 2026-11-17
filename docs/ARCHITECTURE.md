@@ -49,9 +49,19 @@ source region → clip effect chain → track sum → track effect chain
 ```
 
 Mute and solo are resolved during plan preparation. Clip/track chains preserve
-order. For the MVP, editing pauses playback and rebuilds the graph; there is no
-concurrent graph mutation. Export creates a separate graph, so it never shares
+order. Structural timeline edits and undo/redo pause playback and rebuild the
+graph. Track mixing controls and inspector effect edits instead build a fresh graph
+on the control thread and publish it with `AudioTransport.UpdatePlan`. The callback
+reads one graph reference per invocation; an in-flight callback finishes the old
+graph before the next one sees the new graph. Position, output device, and playing
+state are preserved. Graphs are never concurrently mutated. Output-format changes
+are rejected on the live path. Export creates a separate graph, so it never shares
 processor state with playback.
+
+Current effects are stateless gain/limiting. Swapping graphs recreates processors,
+without parameter smoothing or crossfades. Stateful DSP will need explicit state/
+tail migration, transition scheduling, and deferred disposal off the callback
+thread; do not mistake this handoff for a complete live plugin-update engine.
 
 The render callback performs no file access, UI calls, locks, LINQ, or managed
 allocation. It is a managed soft-real-time implementation, **not** a hard-real-time
@@ -82,13 +92,37 @@ tolerance, independent of the optional clip-move snapping toggle.
 
 Track slider drags keep a transient presentation preview and commit one metadata
 edit on release or capture loss; keyboard steps commit individually. Thus dragging
-does not fill the 200-edit history or mutate the audio graph on every mouse move.
+does not fill the 200-edit history or commit project metadata on every mouse move.
 The volume slider is 0–2×, while pre-existing higher saved gains are left intact.
 Both sliders quantize to 0.05. Inspector width, track heights (164–600 px), zoom,
 theme, and snapping remain view state, not project fields. Shared dynamic track
 geometry drives headers, waveforms, hit testing, draft clips, and drag previews.
-`ClipInspectorView` / `ClipInspectorViewModel` isolate metadata, ordered effect rows,
-and actions so future parameter editors need not be embedded in the window layout.
+The editor consumes both Space key-down and key-up before focused controls see
+them; key repeat is suppressed. Text-box descendants are exempt for text entry.
+Modal dialogs retain their normal keyboard behavior.
+
+`ClipInspectorViewModel` owns a permanent `ClipPropertiesViewModel` and an ordered
+observable collection of `ClipEffectEditorViewModel` sections. Name/start drafts
+commit together; source-region metadata stays read-only. Effect sections are stable
+across ordinary notifications/parameter edits, preserving focused controls. Changes
+in selection or chain shape rebuild the relevant editor set. Commands capture the
+clip ID, chain index, and expected effect record; detached/stale editors cannot
+silently edit another instance after removal. No effect IDs/project-version change
+are required.
+
+`ClipEffectEditorFactory` explicitly registers typed gain/limiter editors; typed
+XAML templates provide their individual controls. The common base owns only section
+lifecycle (enabled/bypass/removal), not a fixed list of effect parameters.
+`SingleParameterEffectEditorViewModel` is an optional gesture/preview helper, not
+a restriction on future multi-parameter editors. To add an effect editor, register
+its model in the factory, add a typed template (or dedicated view), then implement
+its validated domain description/DSP/persistence and tests. No reflection scanning
+or runtime code generation is used.
+
+Track/effect slider previews publish prepared transient graphs without changing
+the project/history; release commits one metadata edit. Canceling a detached effect
+preview restores the current project graph. Live publication never performs UI,
+allocation, locks, or device restart within the audio callback.
 
 Track `Pan` is an additive version-1 field (missing values default to zero). It is
 stereo balance in [-1, 1], not a channel-summing mono panner; center preserves unity.

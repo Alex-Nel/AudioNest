@@ -33,6 +33,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly HashSet<Guid> _selected = [];
     private readonly Dictionary<Guid, double> _trackHeights = [];
     private TimelineTool _tool;
+    private bool _keepPlayingEdit;
 
     public MainViewModel(ProjectSession session, AudioLibrary library, AudioTransport transport,
         IAudioBackend backend, IProjectStore store, string? workspace = null)
@@ -158,7 +159,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         name = name.Trim();
         if (name.Length is < 1 or > 120) { ReportError(new ArgumentException("Track name must contain 1–120 characters.")); return; }
-        Edit("Rename track", p => ProjectEdits.UpdateTrack(p, id, t => t with { Name = name }));
+        Edit("Rename track", p => ProjectEdits.UpdateTrack(p, id, t => t with { Name = name }), keepPlaying: true);
     }
     public AudioBuffer Buffer(Guid asset) => _library[asset];
     private PcmFormat Format => new(Project.SampleRate, 2);
@@ -182,7 +183,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedClip is null) SelectedClipId = _selected.Cast<Guid?>().FirstOrDefault();
         if (SelectedClipId is { } selected) SelectedTrackId = ProjectEdits.FindTrack(Project, selected).Id;
         SyncTrackHeaders();
-        _transport.SetPlan(new RenderPlan(Project, id => _library[id]));
+        var plan = new RenderPlan(Project, id => _library[id]);
+        if (_keepPlayingEdit) _transport.UpdatePlan(plan);
+        else _transport.SetPlan(plan);
         Notify();
     }
 
@@ -258,17 +261,19 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Notify();
     }
 
-    public void Edit(string name, Func<AudioProject, AudioProject> edit)
+    public void Edit(string name, Func<AudioProject, AudioProject> edit, bool keepPlaying = false)
     {
         if (!CanEdit) return;
         try
         {
-            _transport.Pause();
+            if (!keepPlaying) _transport.Pause();
+            _keepPlayingEdit = keepPlaying;
             _session.Apply(name, edit);
             _status = name;
             Notify();
         }
         catch (Exception ex) { ReportError(ex); }
+        finally { _keepPlayingEdit = false; }
     }
 
     public void AddTrack() => AddTrack(TrackChannelLayout.Stereo);
@@ -332,7 +337,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedClipId is { } first) SelectedTrackId = ProjectEdits.FindTrack(Project, first).Id;
         Notify();
     }
-    public void DeleteTrack(Guid id) => Edit("Delete track", p => ProjectEdits.DeleteTrack(p, id));
+    public void DeleteTrack(Guid id) => Edit("Delete track", p => ProjectEdits.DeleteTrack(p, id), keepPlaying: true);
     public void DeleteSelectedTrack() { if (SelectedTrackId is { } id) DeleteTrack(id); }
     public void Split() { if (SelectedClipId is { } id) Edit("Split clip", p => ProjectEdits.Split(p, id, Position)); }
     public void Delete() { if (_selected.Count > 0) { var ids = _selected.ToHashSet(); Edit("Delete clips", p => ProjectEdits.DeleteClips(p, ids)); } }
@@ -367,20 +372,59 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 Effects = t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0,
                     new EffectSpec(EffectKind.Gain, Math.Clamp(gain * MathF.Pow(10, decibels / 20), 0, 2)))
             };
-        }));
+        }), keepPlaying: true);
     public void SetTrackVolume(Guid id, float volume) => Edit("Track volume",
         p => ProjectEdits.UpdateTrack(p, id, t =>
         {
             var clamped = float.IsFinite(volume) ? Math.Clamp(volume, 0, 2) : 1;
             if ((t.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1) == clamped) return t;
             return t with { Effects = t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0, new EffectSpec(EffectKind.Gain, clamped)) };
-        }));
+        }), keepPlaying: true);
+    public void PreviewTrackMix(Guid id, double? volume, double? pan)
+    {
+        if (!CanEdit) return;
+        var preview = ProjectEdits.UpdateTrack(Project, id, t => t with
+        {
+            Effects = volume is { } v
+                ? t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0, new EffectSpec(EffectKind.Gain, (float)v))
+                : t.Effects,
+            Pan = t.Layout == TrackChannelLayout.Mono ? 0 : (float)(pan ?? t.Pan)
+        });
+        _transport.UpdatePlan(new RenderPlan(preview, asset => _library[asset]));
+    }
+
+    public void UpdateClipProperties(Guid clip, string name, long start) => Edit("Clip properties",
+        p => ProjectEdits.UpdateClip(p, clip, c => c with { Name = name.Trim(), Start = start }));
+    public void AddClipEffect(EffectKind kind)
+    {
+        if (SelectedClipId is not { } clip) return;
+        var effect = new EffectSpec(kind, kind == EffectKind.Gain ? 1 : 0.9f);
+        Edit("Add clip effect", p => ProjectEdits.UpdateClip(p, clip, c => c with { Effects = c.Effects.Add(effect) }), keepPlaying: true);
+    }
+    public void ChangeClipEffect(Guid clip, int index, EffectSpec expected, EffectSpec? replacement)
+    {
+        Edit(replacement is null ? "Remove clip effect" : "Change clip effect", p => ProjectEdits.UpdateClip(p, clip, c =>
+            index < 0 || index >= c.Effects.Length || !ReferenceEquals(c.Effects[index], expected) || replacement == expected ? c
+                : c with { Effects = replacement is null ? c.Effects.RemoveAt(index) : c.Effects.SetItem(index, replacement) }), keepPlaying: true);
+    }
+    public void PreviewClipEffect(Guid clip, int index, EffectSpec expected, EffectSpec replacement)
+    {
+        if (!CanEdit) return;
+        var preview = ProjectEdits.UpdateClip(Project, clip, c =>
+            index < 0 || index >= c.Effects.Length || !ReferenceEquals(c.Effects[index], expected) ? c
+                : c with { Effects = c.Effects.SetItem(index, replacement) });
+        _transport.UpdatePlan(new RenderPlan(preview, asset => _library[asset]));
+    }
+    public void RestoreMixPreview()
+    {
+        if (CanEdit) _transport.UpdatePlan(new RenderPlan(Project, asset => _library[asset]));
+    }
     public void SetTrackPan(Guid id, float pan) => Edit("Track stereo balance",
-        p => ProjectEdits.UpdateTrack(p, id, t => t with { Pan = t.Layout == TrackChannelLayout.Mono ? 0 : Math.Clamp(pan, -1, 1) }));
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Pan = t.Layout == TrackChannelLayout.Mono ? 0 : Math.Clamp(pan, -1, 1) }), keepPlaying: true);
     public void ToggleTrackMute(Guid id) => Edit("Toggle track mute",
-        p => ProjectEdits.UpdateTrack(p, id, t => t with { Muted = !t.Muted }));
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Muted = !t.Muted }), keepPlaying: true);
     public void ToggleTrackSolo(Guid id) => Edit("Toggle track solo",
-        p => ProjectEdits.UpdateTrack(p, id, t => t with { Solo = !t.Solo }));
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Solo = !t.Solo }), keepPlaying: true);
     public void Nudge(double seconds)
     {
         if (SelectedClip is { } c && SelectedTrackId is { } track)
@@ -388,13 +432,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     public void ToggleMute()
     {
-        if (SelectedTrackId is { } id) Edit("Toggle track mute",
-            p => ProjectEdits.UpdateTrack(p, id, t => t with { Muted = !t.Muted }));
+        if (SelectedTrackId is { } id) ToggleTrackMute(id);
     }
     public void ToggleSolo()
     {
-        if (SelectedTrackId is { } id) Edit("Toggle track solo",
-            p => ProjectEdits.UpdateTrack(p, id, t => t with { Solo = !t.Solo }));
+        if (SelectedTrackId is { } id) ToggleTrackSolo(id);
     }
     public void ApplyGain(float decibels, bool track)
     {
@@ -405,7 +447,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 .Insert(0, new EffectSpec(EffectKind.Gain, Math.Clamp(gain * MathF.Pow(10, decibels / 20), 0, track ? 2 : 16)));
         }
         if (track && SelectedTrackId is { } tid)
-            Edit("Track gain", p => ProjectEdits.UpdateTrack(p, tid, t => t with { Effects = Change(t.Effects) }));
+            Edit("Track gain", p => ProjectEdits.UpdateTrack(p, tid, t => t with { Effects = Change(t.Effects) }), keepPlaying: true);
         else if (!track && SelectedClipId is { } cid)
             Edit("Clip gain", p => ProjectEdits.UpdateClip(p, cid, c => c with { Effects = Change(c.Effects) }));
     }
@@ -416,7 +458,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 ? effects.RemoveAll(e => e.Kind == EffectKind.HardLimiter)
                 : effects.Add(new EffectSpec(EffectKind.HardLimiter, 0.9f));
         if (track && SelectedTrackId is { } tid)
-            Edit("Toggle track hard limiter", p => ProjectEdits.UpdateTrack(p, tid, t => t with { Effects = Change(t.Effects) }));
+            Edit("Toggle track hard limiter", p => ProjectEdits.UpdateTrack(p, tid, t => t with { Effects = Change(t.Effects) }), keepPlaying: true);
         else if (!track && SelectedClipId is { } cid)
             Edit("Toggle clip hard limiter", p => ProjectEdits.UpdateClip(p, cid, c => c with { Effects = Change(c.Effects) }));
     }
