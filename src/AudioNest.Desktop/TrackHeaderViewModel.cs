@@ -25,6 +25,7 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
     public Guid Id { get; }
     private AudioTrack Track => _owner.Project.Tracks.First(t => t.Id == Id);
     public string Name => Track.Name;
+    public string ChannelText => Track.Layout == TrackChannelLayout.Mono ? "MONO" : "STEREO";
     public bool IsSelected => _owner.SelectedTrackId == Id;
     public bool IsMuted => Track.Muted;
     public bool IsSolo => Track.Solo;

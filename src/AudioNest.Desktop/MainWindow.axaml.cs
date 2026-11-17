@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private bool _confirmingClose;
     private bool _synchronizingScroll;
     private double _inspectorWidth = 280;
+    private double _meterWidth = 184;
     private bool _altZoomUsed;
     private static readonly FilePickerFileType ProjectType = new("AudioNest project") { Patterns = ["*.audionest"] };
     private static readonly FilePickerFileType AudioType = new("Audio files") { Patterns = ["*.wav", "*.mp3", "*.flac"] };
@@ -34,6 +35,17 @@ public partial class MainWindow : Window
         ApplyTheme();
         SizeChanged += (_, _) => UpdateResponsiveLayout();
         InspectorSplitter.DragCompleted += (_, _) => _inspectorWidth = EditorBody.ColumnDefinitions[2].ActualWidth;
+        MeterSplitter.DragCompleted += (_, _) => _meterWidth = ToolbarGrid.ColumnDefinitions[4].ActualWidth;
+        TrackHeadersPanel.ContextRequested += (_, e) =>
+        {
+            TrackHeadersPanel.ContextMenu?.Close();
+            TrackHeadersPanel.ContextMenu = null;
+            e.Handled = true;
+            if (!_vm.CanEdit || !e.TryGetPosition(TrackHeadersPanel, out var point) ||
+                point.Y < _vm.Project.Tracks.Length * TimelineMetrics.TrackHeight) return;
+            TrackHeadersPanel.ContextMenu = TimelineContextMenus.TrackCreation(_vm);
+            TrackHeadersPanel.ContextMenu.Open(TrackHeadersPanel);
+        };
         TimelineArea.AddHandler(PointerWheelChangedEvent, OnTimelineWheel, RoutingStrategies.Tunnel);
         TimelineScroll.ScrollChanged += (_, _) => SynchronizeTimeline();
         RulerScroll.ScrollChanged += (_, _) =>
@@ -87,6 +99,11 @@ public partial class MainWindow : Window
         column.Width = new GridLength(showInspector ? Math.Clamp(_inspectorWidth, column.MinWidth, column.MaxWidth) : 0);
         EditorBody.ColumnDefinitions[1].Width = new GridLength(showInspector ? 5 : 0);
         EditorBody.ColumnDefinitions[0].MinWidth = showInspector ? 560 : 0;
+        var meters = ToolbarGrid.ColumnDefinitions[4];
+        meters.MinWidth = 140;
+        meters.MaxWidth = Math.Max(140, Math.Min(360, Bounds.Width - 500));
+        meters.Width = new GridLength(Math.Clamp(_meterWidth, meters.MinWidth, meters.MaxWidth));
+        ToolbarGrid.ColumnDefinitions[2].MinWidth = 80;
     }
 
     public void ZoomAroundPlayhead(double multiplier)
@@ -94,6 +111,10 @@ public partial class MainWindow : Window
         var frame = _vm.Position;
         var screenX = (double)frame / _vm.Project.SampleRate * _vm.PixelsPerSecond - TimelineScroll.Offset.X;
         if (screenX < 0 || screenX > TimelineScroll.Viewport.Width) screenX = TimelineScroll.Viewport.Width / 2;
+        ZoomAroundFrame(multiplier, frame, screenX);
+    }
+    private void ZoomAroundFrame(double multiplier, double frame, double screenX)
+    {
         _vm.Zoom(multiplier);
         // Apply the new extent before assigning Offset, otherwise ScrollViewer
         // would clamp the requested anchor against the previous zoom's extent.
@@ -106,7 +127,9 @@ public partial class MainWindow : Window
     {
         if (_vm.IsLeftAltDown && e.Delta.Y != 0)
         {
-            ZoomAroundPlayhead(Math.Pow(1.2, Math.Clamp(e.Delta.Y, -8, 8)));
+            var screenX = Math.Clamp(e.GetPosition(TimelineScroll).X, 0, TimelineScroll.Viewport.Width);
+            var frame = (TimelineScroll.Offset.X + screenX) / _vm.PixelsPerSecond * _vm.Project.SampleRate;
+            ZoomAroundFrame(Math.Pow(1.2, Math.Clamp(e.Delta.Y, -8, 8)), frame, screenX);
             _altZoomUsed = true;
         }
         else
@@ -270,6 +293,9 @@ public partial class MainWindow : Window
         else if (control && e.Key == Key.N) await NewProjectAsync();
         else if (control && e.Key == Key.O) await OpenProjectAsync();
         else if (control && e.Key == Key.I) await ImportAudioAsync();
+        else if (control && e.Key == Key.C) _vm.Copy();
+        else if (control && e.Key == Key.X) _vm.Cut();
+        else if (control && e.Key == Key.V) _vm.Paste();
         else if (control && e.Key == Key.Z)
         {
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) _vm.Redo(); else _vm.Undo();
@@ -277,6 +303,8 @@ public partial class MainWindow : Window
         else if (control && e.Key == Key.Y) _vm.Redo();
         else if (e.Key == Key.Space) _vm.Play();
         else if (e.Key == Key.S && !control) _vm.Split();
+        else if (e.Key == Key.V && !control) _vm.SetTool(TimelineTool.Selection);
+        else if (e.Key == Key.C && !control) _vm.SetTool(TimelineTool.Razor);
         else if (e.Key is Key.Delete or Key.Back) _vm.Delete();
         else if (e.Key == Key.Home) _vm.Seek(0);
         else if (e.Key == Key.End) _vm.SkipToEnd();

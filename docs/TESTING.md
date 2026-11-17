@@ -35,11 +35,29 @@ Use disposable test material first:
   Clip selection/movement and track-header buttons must not move the playhead.
 - Toggle Snap, align both clip edges to the cursor/other clips at different zoom
   levels, and hold Alt to bypass. Undo a drag in one operation.
-- Use toolbar magnifiers and left-Alt wheel zoom at different scroll offsets.
-  The playhead should stay at the same screen x when visible; if offscreen, zoom
-  should bring it into view. Ordinary wheel scrolling must not change zoom.
+- Use toolbar magnifiers at different scroll offsets: preserve the visible
+  playhead's screen x, or bring an offscreen playhead into view. Left-Alt wheel
+  zoom must instead preserve the time under the mouse. Ordinary wheel scrolling
+  navigates without changing zoom.
 - Hold left Shift while seeking with the ruler: test nearby boundaries on every
   track. Right Alt/Shift should not activate these side-specific gestures.
+- Drag both clip edges inward/outward, including adjacent/tiny clips. Expansion
+  must reveal the original source, stop at source limits/zero time, and keep at
+  least one frame. Check preview waveform, undo/redo, and save/open.
+- Switch selection/razor tools with toolbar buttons or V/C. Razor clicks and
+  right-click splits must use the clicked frame, not the playhead; endpoint clicks
+  must not create zero-length clips.
+- Exercise Ctrl/Cmd+C/X/V and contextual cut/copy/paste. Confirm copied offsets/
+  effects are independent of later edits, each paste has a fresh ID, and paste at
+  the playhead still works after cutting the final clip. Try same-rate project
+  changes, no-track paste, undo/redo, and saving the pasted result.
+- Right-click blank track space with/without clipboard content and verify only
+  relevant paste/mute actions. Right-click blank header space to add stereo/mono
+  tracks; it must not reuse that creation menu on existing track headers.
+- Compare stereo and mono with asymmetric and anti-phase test material: mono
+  should average channels, show the downmix envelope, and match WAV export.
+  Load a v1 project and confirm stereo defaults without changing the source file;
+  save/reopen v2 mono projects.
 - Resize to 760–1500 px widths and vary height; confirm pinned track headers,
   ruler/clip horizontal alignment, fixed horizontal scrollbar, and inspector hiding.
 - Toggle light/dark mode and operate File/Edit/Effects/Tools/Help. On macOS,
@@ -51,6 +69,8 @@ Use disposable test material first:
 - Drag the inspector divider to both limits, shrink/restore the window, and
   verify remembered width and timeline/ruler alignment. Change clip selection and
   confirm status text and inspector metadata/effect rows follow the selection.
+- Resize the meter section independently, inspect consistent toolbar button sizes,
+  adjacent skip buttons, grouped menu separators, and the softer light-mode canvas.
 - Confirm separate Play and Pause buttons, skip-to-start/end, and live status-bar
   microsecond time/exact frame count while playing and seeking.
 - Apply gain/limiter to one segment and its parent track. Check mute and solo.

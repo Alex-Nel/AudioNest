@@ -146,7 +146,7 @@ public sealed class UiRefinementTests
     }
 
     [AvaloniaFact]
-    public async Task ZoomButtonsAndLeftAltWheelKeepPlayheadScreenPosition()
+    public async Task ZoomButtonsAnchorPlayheadAndLeftAltWheelAnchorsPointer()
     {
         using var directory = new TempDirectory();
         using var backend = new FakeBackend { DecodedFrames = 48000 * 20 };
@@ -169,11 +169,13 @@ public sealed class UiRefinementTests
         var mouse = InWindow(canvas, window, new Point(scroll.Offset.X + 50, 50));
         window.KeyPress(Key.LeftAlt, RawInputModifiers.Alt, PhysicalKey.AltLeft, null);
         var scale = vm.PixelsPerSecond;
+        var pointerX = mouse.X - InWindow(scroll, window, default).X;
+        var pointerTime = (scroll.Offset.X + pointerX) / vm.PixelsPerSecond;
         window.MouseWheel(mouse, new Vector(0, 1), RawInputModifiers.Alt);
         window.KeyRelease(Key.LeftAlt, RawInputModifiers.None, PhysicalKey.AltLeft, null);
         Layout();
         Assert.True(vm.PixelsPerSecond > scale);
-        Assert.InRange(Math.Abs(ScreenX() - before), 0, 1);
+        Assert.InRange(Math.Abs((scroll.Offset.X + pointerX) / vm.PixelsPerSecond - pointerTime), 0, 0.001);
 
         scale = vm.PixelsPerSecond;
         window.KeyPress(Key.RightAlt, RawInputModifiers.Alt, PhysicalKey.AltRight, null);

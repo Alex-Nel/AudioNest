@@ -15,7 +15,7 @@ public sealed class RenderPlan
     private readonly float[] _clipScratch;
     private readonly float[] _trackScratch;
     private sealed record PreparedClip(AudioClip Clip, AudioBuffer Buffer, IAudioProcessor[] Effects);
-    private sealed record PreparedTrack(PreparedClip[] Clips, IAudioProcessor[] Effects, float Left, float Right);
+    private sealed record PreparedTrack(PreparedClip[] Clips, IAudioProcessor[] Effects, float Left, float Right, bool Mono);
 
     public RenderPlan(AudioProject project, Func<Guid, AudioBuffer> getBuffer, IAudioEffectFactory? effects = null)
     {
@@ -35,7 +35,8 @@ public sealed class RenderPlan
                 if (buffer.Format != Format || c.SourceOffset + c.Length > buffer.FrameCount)
                     throw new InvalidDataException("Decoded audio does not match the project.");
                 return new PreparedClip(c, buffer, Prepare(c.Effects));
-            }).ToArray(), Prepare(t.Effects), 1 - Math.Max(0, t.Pan), 1 + Math.Min(0, t.Pan))).ToArray();
+            }).ToArray(), Prepare(t.Effects), 1 - Math.Max(0, t.Pan), 1 + Math.Min(0, t.Pan),
+                t.Layout == TrackChannelLayout.Mono)).ToArray();
     }
 
     public PcmFormat Format { get; }
@@ -63,7 +64,9 @@ public sealed class RenderPlan
                     for (var i = 0; i < clipSamples.Length; i++)
                     {
                         var sourceFrame = clip.Clip.SourceOffset + from - clip.Clip.Start + i / Format.Channels;
-                        clipSamples[i] = clip.Buffer.Sample(sourceFrame, i % Format.Channels);
+                        clipSamples[i] = track.Mono
+                            ? clip.Buffer.Sample(sourceFrame, 0) * 0.5f + clip.Buffer.Sample(sourceFrame, 1) * 0.5f
+                            : clip.Buffer.Sample(sourceFrame, i % Format.Channels);
                     }
                     Process(clipSamples, clip.Effects);
                     var destination = (int)(from - blockStart) * Format.Channels;

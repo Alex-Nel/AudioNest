@@ -21,12 +21,16 @@
                 a:AutomationProperties.Name="Delete track" ToolTip.Tip="Delete track (undoable)" />
         <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </Grid>
-      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
-        <ToggleButton Content="Mute" Classes="track" IsChecked="{Binding IsMuted, Mode=OneWay}"
-                      Command="{Binding Mute}" a:AutomationProperties.Name="Mute track" />
-        <ToggleButton Content="Solo" Classes="track" IsChecked="{Binding IsSolo, Mode=OneWay}"
-                      Command="{Binding Solo}" a:AutomationProperties.Name="Solo track" />
-      </StackPanel>
+      <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <ToggleButton Content="Mute" Classes="track" IsChecked="{Binding IsMuted, Mode=OneWay}"
+                        Command="{Binding Mute}" a:AutomationProperties.Name="Mute track" />
+          <ToggleButton Content="Solo" Classes="track" IsChecked="{Binding IsSolo, Mode=OneWay}"
+                        Command="{Binding Solo}" a:AutomationProperties.Name="Solo track" />
+        </StackPanel>
+        <TextBlock Grid.Column="1" Text="{Binding ChannelText}" FontSize="10" VerticalAlignment="Center"
+                   Foreground="{DynamicResource EditorMuted}" />
+      </Grid>
       <Grid Grid.Row="2" ColumnDefinitions="32,*,45" VerticalAlignment="Center">
         <TextBlock Text="Vol" Foreground="{DynamicResource EditorMuted}" VerticalAlignment="Center" FontSize="11" />
         <Slider x:Name="VolumeSlider" Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding Volume}"

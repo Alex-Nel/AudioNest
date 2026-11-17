@@ -10,6 +10,7 @@ public sealed class AudioBuffer
     private const int PeakFrames = 256;
     private readonly float[] _samples;
     private readonly WavePeak[] _peaks;
+    private readonly WavePeak[] _monoPeaks;
 
     public AudioBuffer(DecodedAudio audio)
     {
@@ -19,15 +20,19 @@ public sealed class AudioBuffer
         Format = audio.Format;
         _samples = audio.Samples;
         _peaks = new WavePeak[(FrameCount + PeakFrames - 1) / PeakFrames];
+        _monoPeaks = new WavePeak[_peaks.Length];
         for (var i = 0; i < _peaks.Length; i++)
+        {
             _peaks[i] = Scan((long)i * PeakFrames, Math.Min(FrameCount, (long)(i + 1) * PeakFrames));
+            _monoPeaks[i] = Scan((long)i * PeakFrames, Math.Min(FrameCount, (long)(i + 1) * PeakFrames), true);
+        }
     }
 
     public PcmFormat Format { get; }
     public long FrameCount => _samples.LongLength / Format.Channels;
     public float Sample(long frame, int channel) => _samples[checked((int)(frame * Format.Channels + channel))];
 
-    public WavePeak Peak(long from, long to)
+    public WavePeak Peak(long from, long to, bool mono = false)
     {
         from = Math.Clamp(from, 0, FrameCount);
         to = Math.Clamp(to, from, FrameCount);
@@ -37,7 +42,7 @@ public sealed class AudioBuffer
         {
             var end = Math.Min(to, ((from / PeakFrames) + 1) * PeakFrames);
             var peak = from % PeakFrames == 0 && end - from == PeakFrames
-                ? _peaks[from / PeakFrames] : Scan(from, end);
+                ? (mono ? _monoPeaks : _peaks)[from / PeakFrames] : Scan(from, end, mono);
             min = Math.Min(min, peak.Minimum);
             max = Math.Max(max, peak.Maximum);
             from = end;
@@ -45,14 +50,14 @@ public sealed class AudioBuffer
         return new WavePeak(min, max);
     }
 
-    private WavePeak Scan(long from, long to)
+    private WavePeak Scan(long from, long to, bool mono = false)
     {
         var min = 0f;
         var max = 0f;
         for (var frame = from; frame < to; frame++)
-            for (var ch = 0; ch < Format.Channels; ch++)
+            for (var ch = 0; ch < (mono ? 1 : Format.Channels); ch++)
             {
-                var sample = Sample(frame, ch);
+                var sample = mono && Format.Channels == 2 ? Sample(frame, 0) * 0.5f + Sample(frame, 1) * 0.5f : Sample(frame, ch);
                 if (!float.IsFinite(sample)) throw new InvalidDataException("Audio contains non-finite samples.");
                 min = Math.Min(min, sample);
                 max = Math.Max(max, sample);

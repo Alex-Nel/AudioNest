@@ -46,22 +46,37 @@ public partial class MainWindow
         void AsyncItem((MenuItem Item, NativeMenu Native) section, string header, Func<Task> action,
             Func<bool>? enabled = null, string? shortcut = null) =>
             Item(section, header, () => RunMenuAsync(action), enabled, shortcut);
+        void Separate((MenuItem Item, NativeMenu Native) section)
+        {
+            section.Item.Items.Add(new Separator());
+            section.Native.Items.Add(new NativeMenuItemSeparator());
+        }
 
         var file = Section("File");
         AsyncItem(file, "New project", NewProjectAsync, Editable, $"{modifier}+N");
         AsyncItem(file, "Open project…", OpenProjectAsync, Editable, $"{modifier}+O");
+        Separate(file);
         AsyncItem(file, "Save", () => SaveAsync(false), Editable, $"{modifier}+S");
         AsyncItem(file, "Save as…", () => SaveAsync(true), Editable, $"{modifier}+Shift+S");
+        Separate(file);
         AsyncItem(file, "Import audio…", ImportAudioAsync, Editable, $"{modifier}+I");
         AsyncItem(file, "Export WAV…", ExportAudioAsync, Editable);
+        Separate(file);
         Item(file, "Close window", Close, () => !_vm.IsBusy);
 
         var edit = Section("Edit");
         Item(edit, "Undo", _vm.Undo, () => _vm.CanUndo, $"{modifier}+Z");
         Item(edit, "Redo", _vm.Redo, () => _vm.CanRedo, $"{modifier}+Shift+Z");
+        Separate(edit);
+        Item(edit, "Cut", _vm.Cut, Clip, $"{modifier}+X");
+        Item(edit, "Copy", _vm.Copy, Clip, $"{modifier}+C");
+        Item(edit, "Paste", _vm.Paste, () => _vm.CanPaste, $"{modifier}+V");
+        Separate(edit);
         Item(edit, "Split clip at playhead", _vm.Split, Clip);
         Item(edit, "Delete clip", _vm.Delete, Clip);
-        Item(edit, "Add track", _vm.AddTrack, Editable);
+        Separate(edit);
+        Item(edit, "Add stereo track", _vm.AddTrack, Editable);
+        Item(edit, "Add mono track", _vm.AddMonoTrack, Editable);
         Item(edit, "Delete selected track", _vm.DeleteSelectedTrack, Track);
 
         var effects = Section("Effects");
@@ -69,21 +84,27 @@ public partial class MainWindow
         Item(effects, "Clip gain +3 dB", () => _vm.ApplyGain(3, false), Clip);
         Item(effects, "Clip hard limiter", () => _vm.ToggleLimiter(false), Clip,
             check: () => _vm.SelectedClip?.Effects.Any(e => e.Kind == Domain.EffectKind.HardLimiter) ?? false);
+        Separate(effects);
         Item(effects, "Track gain −3 dB", () => _vm.ApplyGain(-3, true), Track);
         Item(effects, "Track gain +3 dB", () => _vm.ApplyGain(3, true), Track);
         Item(effects, "Track hard limiter", () => _vm.ToggleLimiter(true), Track,
             check: () => _vm.SelectedTrack?.Effects.Any(e => e.Kind == Domain.EffectKind.HardLimiter) ?? false);
 
         var tools = Section("Tools");
+        Item(tools, "Selection tool", () => _vm.SetTool(TimelineTool.Selection), Editable, "V", () => _vm.IsSelectionTool);
+        Item(tools, "Razor tool", () => _vm.SetTool(TimelineTool.Razor), Editable, "C", () => _vm.IsRazorTool);
+        Separate(tools);
         Item(tools, "Zoom in", () => ZoomAroundPlayhead(1.4));
         Item(tools, "Zoom out", () => ZoomAroundPlayhead(1 / 1.4));
         Item(tools, "Fit project", () => { _vm.FitProject(); TimelineScroll.Offset = default; });
+        Separate(tools);
         Item(tools, "Snap clips", () => _vm.IsSnappingEnabled = !_vm.IsSnappingEnabled, check: () => _vm.IsSnappingEnabled);
         Item(tools, "Dark mode", () => _vm.IsDarkMode = !_vm.IsDarkMode, check: () => _vm.IsDarkMode);
 
         var help = Section("Help");
         AsyncItem(help, "Keyboard shortcuts", () => ShowInformationAsync("Keyboard shortcuts",
-            "Space — Play / pause\nHome / End — Go to start / end\nS — Split selected clip at playhead\nDelete — Delete selected clip\nCtrl/Cmd+Z — Undo\nCtrl/Cmd+Shift+Z or Ctrl/Cmd+Y — Redo\nCtrl/Cmd+N / O / S — New / Open / Save\nCtrl/Cmd+Shift+S — Save as\nCtrl/Cmd+I — Import audio\n\nLeft Alt + wheel — Zoom around the playhead\nLeft Shift + ruler drag — Snap to clip boundaries\nDrag clips to move them; Alt bypasses clip snapping.\nTrack volume: 0–2×, default 1×. Pan: left to right.\nDrag the inspector divider to resize it."));
+            "Space — Play / pause\nHome / End — Go to start / end\nV / C — Selection / Razor tool\nS — Split selected clip at playhead\nDelete — Delete selected clip\nCtrl/Cmd+C / X / V — Copy / Cut / Paste clip\nCtrl/Cmd+Z — Undo\nCtrl/Cmd+Shift+Z or Ctrl/Cmd+Y — Redo\nCtrl/Cmd+N / O / S — New / Open / Save\nCtrl/Cmd+Shift+S — Save as\nCtrl/Cmd+I — Import audio\n\nLeft Alt + wheel — Zoom under mouse pointer\nToolbar magnifiers — Zoom around playhead\nLeft Shift + ruler drag — Snap to clip boundaries\nSelection tool: drag clip edges to trim, middle to move.\nRight-click clips/tracks for contextual editing.\nRight-click empty track-header space to add tracks.\nDrag the inspector or meter divider to resize it."));
+        Separate(help);
         AsyncItem(help, "About AudioNest", () => ShowInformationAsync("About AudioNest",
             "AudioNest\nNon-destructive multitrack recording and editing.\n\nBuilt with .NET, Avalonia, and SoundFlow / MiniAudio.\nGain and hard limiting are included.\nAdvanced DSP and VST hosting are not yet implemented."));
 

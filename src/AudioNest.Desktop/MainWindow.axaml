@@ -9,10 +9,13 @@
     <Menu x:Name="EditorMenuBar" Height="24" Background="{DynamicResource EditorPanel}" />
     <Border Grid.Row="1" Padding="10,7" Background="{DynamicResource EditorPanel}"
             BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,1,0,1">
-      <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+      <Grid x:Name="ToolbarGrid" ColumnDefinitions="Auto,Auto,*,5,184">
         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
           <Button x:Name="SkipBackButton" Classes="transport" Click="SkipBackClick" IsEnabled="{Binding CanEdit}" ToolTip.Tip="Skip to start (Home)" a:AutomationProperties.Name="Skip to start">
             <PathIcon Data="{StaticResource IconBackward}" />
+          </Button>
+          <Button x:Name="SkipForwardButton" Classes="transport" Click="SkipForwardClick" IsEnabled="{Binding CanEdit}" ToolTip.Tip="Skip to end (End)" a:AutomationProperties.Name="Skip to end">
+            <PathIcon Data="{StaticResource IconForward}" />
           </Button>
           <Button x:Name="PlayButton" Classes="transport" Click="PlayClick" IsEnabled="{Binding CanPlay}" ToolTip.Tip="Play (Space)" a:AutomationProperties.Name="Play">
             <PathIcon Data="{StaticResource IconPlay}" Foreground="#238544" />
@@ -23,29 +26,38 @@
           <Button x:Name="StopButton" Classes="transport" Click="StopClick" IsEnabled="{Binding !IsBusy}" ToolTip.Tip="Stop" a:AutomationProperties.Name="Stop">
             <PathIcon Data="{StaticResource IconStop}" />
           </Button>
-          <Button x:Name="SkipForwardButton" Classes="transport" Click="SkipForwardClick" IsEnabled="{Binding CanEdit}" ToolTip.Tip="Skip to end (End)" a:AutomationProperties.Name="Skip to end">
-            <PathIcon Data="{StaticResource IconForward}" />
-          </Button>
           <Button x:Name="RecordButton" Classes="transport" Click="RecordClick" IsEnabled="{Binding CanEdit}" ToolTip.Tip="{Binding RecordLabel}" a:AutomationProperties.Name="Record">
             <PathIcon Data="{StaticResource IconRecord}" Foreground="#D84040" />
           </Button>
         </StackPanel>
         <Border Grid.Column="1" Width="1" Height="34" Margin="10,0" Background="{DynamicResource EditorBorder}" />
-        <WrapPanel x:Name="EditingTools" Grid.Column="2" VerticalAlignment="Center">
-          <Button Content="Import…" Click="ImportClick" IsEnabled="{Binding CanEdit}" Margin="0,2,4,2" />
-          <Button Content="+ Track" Click="AddTrackClick" IsEnabled="{Binding CanEdit}" Margin="0,2,8,2" />
-          <ToggleButton x:Name="SnapButton" Content="Snap" IsChecked="{Binding IsSnappingEnabled}" Margin="0,2,4,2"
+        <WrapPanel x:Name="EditingTools" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,6,0">
+          <Button x:Name="ImportButton" Classes="editorControl" Click="ImportClick" IsEnabled="{Binding CanEdit}"
+                  ToolTip.Tip="Import audio (Ctrl/Cmd+I)" a:AutomationProperties.Name="Import audio">
+            <PathIcon Data="{StaticResource IconImport}" />
+          </Button>
+          <ToggleButton x:Name="SelectionToolButton" Classes="editorControl" IsChecked="{Binding IsSelectionTool, Mode=OneWay}" Command="{Binding SelectionTool}"
+                        ToolTip.Tip="Selection tool (V): move clips and trim edges" a:AutomationProperties.Name="Selection tool">
+            <PathIcon Data="{StaticResource IconSelection}" />
+          </ToggleButton>
+          <ToggleButton x:Name="RazorToolButton" Classes="editorControl" IsChecked="{Binding IsRazorTool, Mode=OneWay}" Command="{Binding RazorTool}"
+                        ToolTip.Tip="Razor tool (C): split at the clicked frame" a:AutomationProperties.Name="Razor tool">
+            <PathIcon Data="{StaticResource IconRazor}" />
+          </ToggleButton>
+          <ToggleButton x:Name="SnapButton" Classes="editorControl" Content="Snap" IsChecked="{Binding IsSnappingEnabled}"
                         ToolTip.Tip="Snap clip edges (Alt bypasses clip snapping)" />
-          <Button x:Name="ZoomOutButton" Width="32" Padding="7" Click="ZoomOutClick" Margin="0,2,4,2" ToolTip.Tip="Zoom out around playhead (left Alt + wheel)" a:AutomationProperties.Name="Zoom out">
+          <Button x:Name="ZoomOutButton" Classes="editorControl" Click="ZoomOutClick" ToolTip.Tip="Zoom out around playhead" a:AutomationProperties.Name="Zoom out">
             <PathIcon Data="{StaticResource IconZoomOut}" />
           </Button>
-          <Button x:Name="ZoomInButton" Width="32" Padding="7" Click="ZoomInClick" Margin="0,2,4,2" ToolTip.Tip="Zoom in around playhead (left Alt + wheel)" a:AutomationProperties.Name="Zoom in">
+          <Button x:Name="ZoomInButton" Classes="editorControl" Click="ZoomInClick" ToolTip.Tip="Zoom in around playhead" a:AutomationProperties.Name="Zoom in">
             <PathIcon Data="{StaticResource IconZoomIn}" />
           </Button>
-          <Button Content="Fit" Click="FitClick" Margin="0,2,4,2" ToolTip.Tip="Fit project to available width" />
+          <Button x:Name="FitButton" Classes="editorControl" Content="Fit" Click="FitClick" ToolTip.Tip="Fit project to available width" />
         </WrapPanel>
-        <Border Grid.Column="3" Width="1" Height="34" Margin="10,0" Background="{DynamicResource EditorBorder}" />
-        <Grid x:Name="LiveMeters" Grid.Column="4" Width="184" RowDefinitions="18,18" ColumnDefinitions="18,*,54" VerticalAlignment="Center">
+        <GridSplitter x:Name="MeterSplitter" Grid.Column="3" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="{DynamicResource EditorBorder}"
+                      a:AutomationProperties.Name="Resize audio meters" />
+        <Grid x:Name="LiveMeters" Grid.Column="4" Margin="6,0,0,0" RowDefinitions="18,18" ColumnDefinitions="18,*,54" VerticalAlignment="Center">
           <PathIcon Data="{StaticResource IconSpeaker}" Width="13" Height="13" ToolTip.Tip="Timeline playback" />
           <local:AudioMeterControl x:Name="OutputMeter" Grid.Column="1" Height="7" Level="{Binding OutputLevel}" VerticalAlignment="Center"
                                    ToolTip.Tip="{Binding OutputMeterText}" a:AutomationProperties.Name="Timeline output peak meter" />
@@ -70,13 +82,15 @@
         </Grid>
         <ScrollViewer x:Name="TracksVerticalScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
           <Grid ColumnDefinitions="228,*" Background="{DynamicResource EditorPanel}">
-            <ItemsControl ItemsSource="{Binding TrackHeaders}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="local:TrackHeaderViewModel">
-                  <local:TrackHeaderView />
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <Border x:Name="TrackHeadersPanel" Background="{DynamicResource EditorPanel}">
+              <ItemsControl ItemsSource="{Binding TrackHeaders}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:TrackHeaderViewModel">
+                    <local:TrackHeaderView />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
             <ScrollViewer x:Name="TimelineScroll" Grid.Column="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
               <Grid Width="{Binding TimelineWidth}" Height="{Binding TimelineHeight}">
                 <local:TimelineControl x:Name="TimelineClips" />

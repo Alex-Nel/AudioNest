@@ -6,8 +6,9 @@ namespace AudioNest.Application;
 /// <summary>Pure edit operations; invalid edits cannot partially mutate a project.</summary>
 public static class ProjectEdits
 {
-    public static AudioProject AddTrack(AudioProject project) =>
-        project with { Tracks = project.Tracks.Add(new AudioTrack { Name = $"Track {project.Tracks.Length + 1}" }) };
+    public static AudioProject AddTrack(AudioProject project) => AddTrack(project, TrackChannelLayout.Stereo);
+    public static AudioProject AddTrack(AudioProject project, TrackChannelLayout layout) =>
+        project with { Tracks = project.Tracks.Add(new AudioTrack { Name = $"Track {project.Tracks.Length + 1}", Layout = layout }) };
 
     public static AudioProject DeleteTrack(AudioProject project, Guid id)
     {
@@ -23,9 +24,14 @@ public static class ProjectEdits
         return next == project.Tracks[index] ? project : project with { Tracks = project.Tracks.SetItem(index, next) };
     }
 
-    public static AudioProject UpdateClip(AudioProject project, Guid id, Func<AudioClip, AudioClip> edit) =>
-        UpdateTrack(project, FindTrack(project, id).Id, t =>
-            t with { Clips = t.Clips.Select(c => c.Id == id ? edit(c) : c).ToImmutableArray() });
+    public static AudioProject UpdateClip(AudioProject project, Guid id, Func<AudioClip, AudioClip> edit)
+    {
+        var track = FindTrack(project, id);
+        var index = track.Clips.FindIndex(c => c.Id == id);
+        var next = edit(track.Clips[index]);
+        return next == track.Clips[index] ? project :
+            UpdateTrack(project, track.Id, t => t with { Clips = t.Clips.SetItem(index, next) });
+    }
 
     public static AudioTrack FindTrack(AudioProject project, Guid clipId) =>
         project.Tracks.FirstOrDefault(t => t.Clips.Any(c => c.Id == clipId))
@@ -69,6 +75,20 @@ public static class ProjectEdits
     public static AudioProject Delete(AudioProject project, Guid clipId) =>
         UpdateTrack(project, FindTrack(project, clipId).Id,
             t => t with { Clips = t.Clips.RemoveAll(c => c.Id == clipId) });
+
+    public static AudioProject TrimStart(AudioProject project, Guid clipId, long at) =>
+        UpdateClip(project, clipId, c => ClipTrimming.Start(c, at));
+
+    public static AudioProject TrimEnd(AudioProject project, Guid clipId, long at) =>
+        UpdateClip(project, clipId, c => ClipTrimming.End(c, project.Assets.First(a => a.Id == c.AssetId), at));
+
+    public static AudioProject InsertClip(AudioProject project, AudioAsset asset, AudioClip clip, Guid track)
+    {
+        var existing = project.Assets.FirstOrDefault(a => a.Id == asset.Id);
+        if (existing is not null && existing != asset) throw new ArgumentException("Asset identity collision.", nameof(asset));
+        var next = existing is null ? project with { Assets = project.Assets.Add(asset) } : project;
+        return UpdateTrack(next, track, t => t with { Clips = t.Clips.Add(clip) });
+    }
 
     public static AudioProject Move(AudioProject project, Guid clipId, Guid destinationTrack, long start)
     {

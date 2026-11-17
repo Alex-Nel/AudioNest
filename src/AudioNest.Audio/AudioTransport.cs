@@ -28,7 +28,8 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
         _output?.Dispose();
         _output = null;
         _plan = plan;
-        Interlocked.Exchange(ref _position, Math.Min(Position, plan.Duration));
+        // The edit cursor may be in silent timeline space. Rebuilding after a
+        // cut/trim/delete must not silently relocate the next paste or recording.
     }
 
     public void Play()

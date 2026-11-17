@@ -262,3 +262,73 @@ Further implementation and verification entries are appended below.
 - Physical microphone/speaker metering and non-Windows behavior still require
   manual hardware/platform acceptance. No physical recording/playback was started.
 - Kept `TODO.txt` unchanged, made no commits, and preserved unrelated files.
+
+## 2026-11-17 — Timeline editing and behavior TODO
+
+- Read the new thirteen-point TODO list; retain all existing uncommitted work.
+- Add source-bounded non-destructive trimming, selection/razor tools, a session clip
+  clipboard, contextual editing/track menus, and persisted mono/stereo track layout.
+- Add grouped menu separators, softer gray light-mode timeline, adjacent skip
+  buttons, uniform toolbar sizing, a resizable meter section, and pointer-anchored
+  wheel zoom while retaining playhead-anchored toolbar zoom.
+- Added pure trim/insert/clipboard metadata operations. Expanding a clip reveals its
+  original source region; it does not stretch, repeat, or overwrite source samples.
+- Added a stereo-default track layout field and mono downmix in the shared render
+  graph, so mono is an audio behavior rather than only a label.
+- Clipboard snapshots preserve offsets/effects and retain shared decoded PCM across
+  project changes. Paste uses fresh clip IDs and safe asset identities, and can
+  create a destination track in the same undoable operation.
+- Added trim handles/resize cursors with live source-region waveform previews,
+  selection/razor modes, and targeted clip/track context menus. Right-click split/
+  paste target the clicked frame without moving the playhead.
+- Added grouped separators to in-window and native menus, Edit-menu clipboard
+  actions/shortcuts, stereo/mono creation, and blank-header-space creation menus.
+- Removed toolbar track creation, made skip controls adjacent, normalized toolbar
+  controls to 42×42, and added a constrained meter-section splitter.
+- Wheel zoom now anchors the mouse's timeline position; toolbar/menu zoom retains
+  the playhead anchor. Mono waveforms use a cached downmix envelope matching audio.
+- Preserved the edit cursor when rebuilding the audio graph after cut/trim/delete,
+  preventing the next paste from unexpectedly moving to project start.
+- Added domain/render/persistence and pointer/keyboard tests for source restoration,
+  razor edits, clipboard snapshots and undo, contextual targeting, mono downmix/
+  waveform/serialization, toolbar grouping, and meter resizing. Initial suite:
+  **52 passed**. Edge hit testing prioritizes clip interiors at adjoining boundaries
+  and leaves a movable center region even for very short clips.
+- New saves use project format v2 for explicit track-channel semantics; loading v1
+  upgrades metadata in memory with stereo defaults and does not rewrite the source
+  project until Save. Older applications therefore reject v2 instead of silently
+  playing a mono track as stereo. Newly created tracks become the selected target.
+- Follow-up suite passes **53 cases**, including clipboard independence, no-track
+  paste as a single undo step, context-menu target isolation, v1 migration without
+  rewriting source files, and suppression of stale context menus.
+- Updated usage, architecture, roadmap, and manual acceptance documentation. The
+  clipboard is explicitly single-clip/session-local and requires a matching project
+  clock; v2 migration and non-destructive mono semantics are documented.
+
+### Completion and final verification
+
+1. Softer gray light-mode clip canvas; left headers and dark palette preserved.
+2. Category separators in every in-window/native submenu.
+3. Source-bounded edge trimming with faithful waveform preview and undo.
+4. Default selection tool and click-to-split razor tool, with V/C shortcuts.
+5. Adjacent backward/forward skip buttons.
+6. Resizable live-meter section, constrained to 140–360 px as window space permits.
+7. Pointer-anchored Alt-wheel zoom; playhead-anchored zoom buttons remain unchanged.
+8. Clip cut/copy/paste in Edit, with Ctrl/Cmd+X/C/V and independent clipboard snapshots.
+9. Clip/empty-track context menus with contextual paste/split/mute targeting.
+10. Stereo-default and mono tracks, with Edit-menu creation and actual downmix behavior.
+11. Blank header-space track-creation menu; toolbar add-track button removed.
+12. File-menu import retained alongside the toolbar import icon.
+13. Uniform 42×42 toolbar controls, including zoom and fit.
+
+- `dotnet test AudioNest.sln --configuration Release`: **53 passed, 0 failed,
+  0 skipped**, with no build warnings/errors.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git diff --check`: passed (existing Git LF/CRLF notices only).
+- Windows x64 Native AOT publish succeeded without warnings; native startup/
+  normal-close smoke test exited with **code 0** and left no test process running.
+- Populated light/dark Skia captures were inspected; generated artifacts remain
+  under ignored build output.
+- No physical recording/playback was started. Physical audio-device acceptance
+  and non-Windows/native macOS menu checks remain manual.
+- `TODO.txt` was not modified. Existing work was preserved; no commits were created.

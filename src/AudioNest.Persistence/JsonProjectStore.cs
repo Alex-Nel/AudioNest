@@ -71,6 +71,9 @@ public sealed class JsonProjectStore : IProjectStore
         if (stream.Length > 16 * 1024 * 1024) throw new InvalidDataException("Project metadata exceeds 16 MB.");
         var project = await JsonSerializer.DeserializeAsync(stream, ProjectJsonContext.Default.AudioProject, cancellationToken)
             ?? throw new InvalidDataException("Empty project.");
+        // V2 adds explicit track-channel semantics. V1 sources remain unchanged
+        // on disk until the user saves; absent layout fields deserialize as stereo.
+        if (project.Version == 1) project = project with { Version = AudioProject.CurrentVersion };
         project.Validate();
         var directory = Path.GetDirectoryName(path)!;
         var assets = ImmutableArray.CreateBuilder<AudioAsset>();

@@ -20,12 +20,14 @@ Microphone capture needs OS permission and an available default input device.
 ## MVP workflow
 
 1. **Import audio** (WAV, MP3, FLAC), or **Record**, then **Stop** to add a take.
-2. Add tracks, click a clip to select it, and drag clips to move them horizontally
-   or between tracks. **Click/drag the time ruler** to position the playhead;
+2. Add stereo/mono tracks from **Edit**, or right-click empty space below the track
+   headers. In the selection tool (**V**), drag clip centers to move them and edges
+   to trim. **Click/drag the time ruler** to position the playhead;
    clip and track-header clicks do not seek. Use the magnifier buttons or **Fit**.
 3. Press **S** to split at the cursor, **Delete** to remove the selected clip,
    and use **Undo / Redo** as needed. To remove an interior segment, split at
    both ends, select the middle clip, and delete it. Deletion does not ripple.
+   The razor tool (**C**) splits directly where a clip is clicked, without seeking.
 4. Use track-header **Mute / Solo**, the volume and stereo-balance sliders,
    and **×** beside the name (undoable track deletion). Clip effects are in the inspector; all
    clip/track effects are also in the **Effects** menu. Split first to process a segment.
@@ -34,6 +36,8 @@ Microphone capture needs OS permission and an available default input device.
 **Space** toggles playback, **Home / End** skip to the start/end, **Ctrl/Cmd+S** saves,
 **Ctrl/Cmd+Shift+S** saves as, **Ctrl/Cmd+Z** undoes, and **Ctrl/Cmd+Shift+Z**
 or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
+**Ctrl/Cmd+C / X / V** copy, cut, and paste the selected clip; keyboard/menu paste
+uses the selected track and playhead. Right-click paste/split uses the clicked time.
 
 ### Editor UI
 
@@ -43,17 +47,20 @@ or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
 - The application starts **maximized**, with its normal OS title bar. Restore it
   with the usual window controls.
 - One grouped toolbar provides icon-only play (green), pause, stop, skip-to-start,
-  skip-to-end, and record (red), followed by import/track/snap/zoom/fit controls.
+  skip-to-end, and record (red), followed by import, selection/razor, snap, zoom,
+  and fit controls. Skip buttons are adjacent and toolbar buttons share a 42×42 size.
   Tooltips and accessibility labels identify the icons.
-- Magnifier buttons and **left Alt + mouse wheel** zoom around the playhead,
-  preserving its screen position when visible, or bringing it into view when not.
+- Magnifier buttons zoom around the playhead, preserving its screen position when
+  visible, or bringing it into view when not. **Left Alt + mouse wheel** instead
+  keeps the timeline time under the **mouse pointer** anchored.
   Unmodified wheel scrolling navigates the timeline. **Left Shift + ruler drag**
   magnetically snaps the cursor to clip starts/ends on any track within eight pixels.
 - **Snap** magnetically aligns either moving clip edge with the playhead or other
   clip boundaries (across tracks) within eight screen pixels. Hold **Alt** to
   bypass it for one drag; turn Snap off for free positioning.
 - Light mode is the neutral default. Choose **Tools → Dark mode** to toggle.
-  Theme and snapping preferences are session-local, not project edits.
+  The light-mode clip canvas uses a soft gray background; track headers are unchanged.
+  Theme, mouse tool, and snapping preferences are session-local, not project edits.
 - The timeline fills the available viewport; the track headers stay pinned during
   horizontal scrolling and the ruler stays pinned during vertical scrolling.
   Below 1100 px window width, the inspector hides to give the timeline room.
@@ -76,6 +83,25 @@ or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
   input (microphone), with dBFS readouts and peak decay. Input is metered **only
   while recording**: startup does not open or monitor the microphone.
   These are peak meters, not RMS/perceived-loudness or LUFS analysis.
+  Drag the divider beside this section to resize it (140–360 px, subject to window size).
+
+### Editing behavior
+
+- Edge trimming is non-destructive and source-bounded. Expanding reveals the
+  original audio and waveform; it never repeats, stretches, or invents samples.
+  At least one source frame remains. One completed trim drag is one undo step.
+- Right-click a clip for cut/copy/paste, split-here, and track mute. Empty space
+  within a track offers paste (when available) and mute; empty header-column space
+  offers stereo/mono track creation. Menus separate related action groups.
+- The internal clipboard holds **one clip**, including its source region and
+  effects, and survives project changes within the same app session. PCM is shared,
+  not duplicated. Paste creates a new clip identity and is independently undoable.
+  This is not an OS audio clipboard; cross-project paste requires matching project
+  sample rates (new projects all use 48 kHz).
+- Stereo tracks retain both channels. Mono tracks non-destructively average L/R
+  before clip effects and feed that mono signal to the stereo output, with the
+  track's normal gain/pan. Waveforms reflect the same downmix, including anti-phase
+  cancellation. Moving a clip back to stereo restores its original channel data.
 
 ### Files and safety
 
@@ -90,6 +116,9 @@ or **Ctrl/Cmd+Y** redoes. The inspector also provides 0.1-second clip nudges.
 - Missing/changed-length media or unsupported project versions fail with an error,
   without replacing the current session. Autosave/recovery UI and garbage
   collection are not implemented. Back up valuable recordings.
+- New saves use project format **v2**, which records track channel layout. Existing
+  v1 projects open with stereo defaults and upgrade in memory; their files are not
+  rewritten until Save. Older AudioNest versions reject v2 rather than misreading mono.
 
 ## Architecture
 

@@ -6,7 +6,7 @@ namespace AudioNest.Domain;
 // Times are integer sample frames in the project clock, never UI pixels or wall time.
 public sealed record AudioProject
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
     public int Version { get; init; } = CurrentVersion;
     public string Name { get; init; } = "Untitled";
     public int SampleRate { get; init; } = 48000;
@@ -33,7 +33,8 @@ public sealed record AudioProject
         foreach (var track in Tracks)
         {
             if (track is null || track.Id == Guid.Empty || !ids.Add(track.Id) || string.IsNullOrWhiteSpace(track.Name) ||
-                track.Clips.IsDefault || !float.IsFinite(track.Pan) || track.Pan is < -1 or > 1)
+                track.Clips.IsDefault || !float.IsFinite(track.Pan) || track.Pan is < -1 or > 1 ||
+                !Enum.IsDefined(track.Layout))
                 throw new InvalidDataException("Invalid or duplicate track.");
             ValidateEffects(track.Effects);
             foreach (var clip in track.Clips)
@@ -75,11 +76,14 @@ public sealed record AudioTrack
     public string Name { get; init; } = "Audio track";
     public bool Muted { get; init; }
     public bool Solo { get; init; }
+    public TrackChannelLayout Layout { get; init; } = TrackChannelLayout.Stereo;
     // Stereo balance: -1 is left, 0 preserves both channels, +1 is right.
     public float Pan { get; init; }
     public ImmutableArray<EffectSpec> Effects { get; init; } = [];
     public ImmutableArray<AudioClip> Clips { get; init; } = [];
 }
+
+public enum TrackChannelLayout { Stereo, Mono }
 
 public sealed record AudioClip
 {

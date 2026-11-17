@@ -73,8 +73,9 @@ Ruler/clip horizontal scroll offsets are synchronized; vertical track scrolling
 moves headers and clips together. Timeline extents grow from the viewport rather
 than a fixed minimum width. Clip drawing is limited to its effective viewport.
 
-Toolbar/menu zoom and left-Alt wheel zoom share a playhead anchor, and wait for
-the new layout extent before assigning the new scroll offset. Only physical-left
+Toolbar/menu zoom uses the playhead anchor; left-Alt wheel zoom uses the pointer's
+timeline position. Both apply the new layout extent before assigning the new
+scroll offset. Only physical-left
 Alt/Shift state enables the new gestures; window deactivation clears that state.
 Left-Shift ruler snapping reuses frame-based clip boundaries with a screen-pixel
 tolerance, independent of the optional clip-move snapping toggle.
@@ -90,6 +91,26 @@ and actions so future parameter editors need not be embedded in the window layou
 Track `Pan` is an additive version-1 field (missing values default to zero). It is
 stereo balance in [-1, 1], not a channel-summing mono panner; center preserves unity.
 Track deletion retains media for undo and does not garbage-collect source files.
+
+`ClipTrimming` computes source-bounded start/end metadata. The start edge changes
+source offset and timeline start while preserving the opposite end; the end edge
+changes only length. Canvas previews use these same calculations and source peaks,
+and commit once per pointer gesture. Interior hit testing takes precedence over
+neighboring resize halos; short clips retain a movable center.
+
+Selection and razor tools are presentation state. Razor/context-menu split
+coordinates are translated to project frames and invoke the same pure split edit.
+Clipboard metadata (`ClipClipboardItem`) is immutable; the desktop retains the
+associated `AudioBuffer` separately. Paste resolves safe asset/clip identities,
+shares PCM, and creates any missing destination track within the same edit.
+The session clipboard is not an OS audio clipboard and requires a matching project
+clock. Graph rebuilds preserve the edit cursor, including after deleting the last clip.
+
+Track layouts are stereo by default. Mono tracks average normalized source L/R
+before clip effects, duplicate the mono signal into the stereo render bus, then
+apply track effects/balance normally. Assets are never converted destructively.
+`AudioBuffer` caches both source-envelope and mono-downmix peaks, so mono
+anti-phase cancellation is reflected in the waveform as well as playback/export.
 
 `AudioBuffer` owns interleaved normalized float PCM and a 256-frame min/max cache.
 The caller transfers array ownership and must not subsequently mutate it.
@@ -147,7 +168,10 @@ an effect into the only surviving source.
 
 ## Persistence and AOT
 
-Version 1 is source-generated JSON plus a sibling media directory. Save copies
+Version 2 is source-generated JSON plus a sibling media directory. V1 is upgraded
+in memory with stereo layout defaults; the original file is unchanged until Save.
+The version bump prevents older readers from ignoring mono-track semantics.
+Save copies
 SHA-256-addressed media first and replaces a temporary metadata file last. Export
 uses the same temporary-file publication pattern. These protect the old file on
 ordinary operation failure; they are not a database, cross-volume transaction,

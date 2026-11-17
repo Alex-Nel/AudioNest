@@ -3,7 +3,7 @@
 | Technical-document requirement | MVP status |
 |---|---|
 | Multitrack timeline with waveforms | Implemented; scroll, zoom, selection, clip dragging |
-| Split/delete/move shortcuts | Implemented; segment deletion via two splits |
+| Split/delete/move shortcuts | Implemented; razor, edge trims, cut/copy/paste, and context menus |
 | Non-destructive editing | Implemented; shared sources and bounded undo/redo |
 | Clip, segment, and track effects | Gain/hard limiter; segments are independent split clips |
 | Noise reduction/compressor/normalizer/reverb/echo/distortion | Not implemented |

@@ -28,6 +28,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private bool _isDarkMode;
     private float _outputPeak;
     private float _inputPeak;
+    private ClipClipboardItem? _clipboard;
+    private AudioBuffer? _clipboardBuffer;
+    private TimelineTool _tool;
 
     public MainViewModel(ProjectSession session, AudioLibrary library, AudioTransport transport,
         IAudioBackend backend, IProjectStore store, string? workspace = null)
@@ -40,6 +43,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _workspace = workspace ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AudioNest", "Media");
         Inspector = new ClipInspectorViewModel(this);
+        SelectionTool = new UiCommand(() => SetTool(TimelineTool.Selection), () => CanEdit);
+        RazorTool = new UiCommand(() => SetTool(TimelineTool.Razor), () => CanEdit);
         _session.Changed += OnProjectChanged;
         _session.Open(ProjectEdits.AddTrack(new AudioProject()));
     }
@@ -49,6 +54,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public event Action? ClockChanged;
     public ObservableCollection<TrackHeaderViewModel> TrackHeaders { get; } = [];
     public ClipInspectorViewModel Inspector { get; }
+    public UiCommand SelectionTool { get; }
+    public UiCommand RazorTool { get; }
+    public TimelineTool Tool => _tool;
+    public bool IsSelectionTool => Tool == TimelineTool.Selection;
+    public bool IsRazorTool => Tool == TimelineTool.Razor;
+    public bool CanPaste => CanEdit && _clipboard is not null && _clipboard.SampleRate == Project.SampleRate;
     public AudioProject Project => _session.Project;
     public AudioClip? SelectedClip => Project.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.Id == SelectedClipId);
     public AudioTrack? SelectedTrack => Project.Tracks.FirstOrDefault(t => t.Id == SelectedTrackId);
@@ -121,6 +132,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ClockChanged?.Invoke();
         foreach (var track in TrackHeaders) track.Refresh();
         Inspector.Refresh();
+        SelectionTool.Refresh();
+        RazorTool.Refresh();
     }
 
     private void OnProjectChanged()
@@ -200,7 +213,47 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception ex) { ReportError(ex); }
     }
 
-    public void AddTrack() => Edit("Add track", ProjectEdits.AddTrack);
+    public void AddTrack() => AddTrack(TrackChannelLayout.Stereo);
+    public void AddMonoTrack() => AddTrack(TrackChannelLayout.Mono);
+    private void AddTrack(TrackChannelLayout layout)
+    {
+        var count = Project.Tracks.Length;
+        Edit(layout == TrackChannelLayout.Mono ? "Add mono track" : "Add stereo track", p => ProjectEdits.AddTrack(p, layout));
+        if (Project.Tracks.Length > count) Select(Project.Tracks[^1].Id, null);
+    }
+    public void SetTool(TimelineTool tool) { if (CanEdit) { _tool = tool; Notify(); } }
+    public void SplitAt(Guid clip, long frame) => Edit("Split clip", p => ProjectEdits.Split(p, clip, frame));
+    public AudioClip PreviewTrim(AudioClip clip, long frame, bool start) => start
+        ? ClipTrimming.Start(clip, frame)
+        : ClipTrimming.End(clip, Project.Assets.First(a => a.Id == clip.AssetId), frame);
+    public void Trim(Guid clip, long frame, bool start) => Edit(start ? "Trim clip start" : "Trim clip end",
+        p => start ? ProjectEdits.TrimStart(p, clip, frame) : ProjectEdits.TrimEnd(p, clip, frame));
+    public void Copy()
+    {
+        if (!HasSelectedClip) return;
+        _clipboard = ClipClipboardItem.Capture(Project, SelectedClipId!.Value);
+        _clipboardBuffer = _library[_clipboard.Asset.Id];
+        _status = "Clip copied.";
+        Notify();
+    }
+    public void Cut() { if (HasSelectedClip) { Copy(); Delete(); } }
+    public void Paste() => PasteAt(SelectedTrackId, Position);
+    public void PasteAt(Guid? destination, long frame)
+    {
+        if (!CanPaste || _clipboardBuffer is null) return;
+        var item = _clipboard!;
+        var existing = Project.Assets.FirstOrDefault(a => a == item.Asset);
+        var asset = existing ?? item.Asset with { Id = Guid.NewGuid() };
+        var track = destination ?? Project.Tracks.FirstOrDefault()?.Id ?? Guid.NewGuid();
+        var clip = item.Clip with { Id = Guid.NewGuid(), AssetId = asset.Id, Start = Math.Max(0, frame) };
+        _library.Add(asset.Id, _clipboardBuffer);
+        Edit("Paste clip", p =>
+        {
+            if (!p.Tracks.Any(t => t.Id == track)) p = p with { Tracks = p.Tracks.Add(new AudioTrack { Id = track, Name = $"Track {p.Tracks.Length + 1}" }) };
+            return ProjectEdits.InsertClip(p, asset, clip, track);
+        });
+        if (Project.Tracks.Any(t => t.Clips.Any(c => c.Id == clip.Id))) Select(track, clip.Id);
+    }
     public void DeleteTrack(Guid id) => Edit("Delete track", p => ProjectEdits.DeleteTrack(p, id));
     public void DeleteSelectedTrack() { if (SelectedTrackId is { } id) DeleteTrack(id); }
     public void Split() { if (SelectedClipId is { } id) Edit("Split clip", p => ProjectEdits.Split(p, id, Position)); }
