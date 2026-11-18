@@ -125,9 +125,13 @@ Selection changes discard transient clip mix and restore the persisted graph.
 Locking prevents individual/group movement, timeline-start edits, and edge trims
 in the pure edit operations as well as the pointer UI. Any locked group member
 anchors the entire selection. Explicit split/delete/paste remain available, and
-record copies preserve all clip properties. Inspector sections use full-width 3 px
-dividers with no enclosing boxes; action/effect-add/track buttons live outside the
-inspector.
+record copies preserve all clip properties. Inspector sections use edge-to-edge,
+theme-aware high-contrast 5 px dividers with no enclosing boxes. Content padding
+belongs to the section bodies, not the scroll container, so separators stay full
+width as the inspector resizes/scrolls. Global fields are 26 px tall; checkboxes
+size automatically to the theme's indicator row (normally 32 px) to avoid clipping.
+Remove buttons sit immediately beside effect names. Action/effect-add/
+track buttons live outside the inspector.
 
 `ClipEffectEditorFactory` explicitly registers typed gain/limiter editors; typed
 XAML templates provide their individual controls. The common base owns only section

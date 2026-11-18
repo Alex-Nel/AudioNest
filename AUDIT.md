@@ -517,3 +517,63 @@ Further implementation and verification entries are appended below.
 - Physical audio-device acceptance and non-Windows/native platform checks remain
   manual; no speakers or microphone were activated.
 - `TODO.txt` was left unchanged. No commits or pushes were created.
+
+## 2026-11-17 — Inspector, toolbar, and exit-dialog visual refinements
+
+- Read the six new TODO points from a clean working tree.
+- Extend inspector dividers to its viewport edges, increase thickness/contrast,
+  label the panel "Clip Inspector", and compact global text/check controls.
+- Remove the processing-order caption and place effect removal beside the name.
+- Increase default meter-section width and center the unsaved-changes dialog
+  message/actions within a smaller window, without changing discard decisions.
+- Moved inspector padding into its content bodies, leaving dividers edge-to-edge
+  even when resized or vertically scrolled. Separators are now 5 px (formerly 3 px)
+  with dedicated higher-contrast light/dark theme brushes.
+- Renamed the heading to "Clip Inspector". Global text fields are 26 px tall with
+  12 px text; global checkboxes are 24 px tall, with reduced spacing. Clip property
+  bindings, live previews, slider steps, validation, and history are unchanged.
+- Removed the processing-order caption. Effect headings size to their content,
+  with the remove button 8 px beside the name instead of at the far panel edge.
+  Ordered effect processing and per-instance removal are unchanged.
+- Meter section defaults to 300 px (formerly 240 px); the existing 140–360 px
+  resize constraints and separated 10 px-tall bars remain.
+- The unsaved-changes dialog is now 360×160, with the entire message/action group
+  centered horizontally and vertically. Message text and both buttons are centered
+  independently. Keep editing/Discard changes retain their prior behavior.
+- Added two headless regressions covering inspector widths of 200/280/520 px,
+  forced scrolling and both themes, exact separator coverage, compact field/
+  checkbox sizes, adjacent remove-button placement and real removal/undo, plus
+  exit-dialog centering/containment and both close decisions. Layout assertions
+  allow normal subpixel/pixel rounding.
+- Updated README, architecture notes, and visual/manual acceptance checks.
+  No audio/domain/persistence/dependency or project-format changes were needed.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **87 passed, 0 failed,
+  0 skipped**, without build warnings/errors.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git diff --check`: passed.
+- Windows x64 Native AOT publish succeeded without warnings; native startup and
+  normal close exited with code 0, leaving no test process running.
+- Inspected light/dark inspector and `unsaved-changes-*.png` captures in ignored
+  test `ui-artifacts/`. Physical OS display-scaling/non-Windows checks remain manual.
+- No physical audio playback or microphone capture was started.
+- `TODO.txt` was not modified. No commits or pushes were created.
+
+## 2026-11-17 — Global checkbox clipping correction
+
+- Preserved the existing staged visual-refinement changes.
+- Removed the global checkboxes' fixed 24 px height/minimum. Fluent positions the
+  20 px box inside a theme-sized indicator row (normally 32 px), so shrinking only
+  the outer control clips its lower edge. Automatic sizing now respects that row;
+  compact checkbox labels/padding and 26 px text fields are unchanged.
+- Added a regression for indicator containment in checked/unchecked states and
+  both themes, plus a taller theme indicator row. Updated layout expectations
+  and current documentation without rewriting historical audit entries.
+- Verification: **88 tests passed**, with no failures/skips; formatting and
+  `git diff --check` passed. Inspected checked/unchecked light/dark captures and
+  confirmed the checkbox bottoms are visible while text-field sizing is unchanged.
+- This correction changes no audio, persistence, or dialog behavior. Native AOT
+  publishing and physical display-scaling checks were not repeated for this fix.
+- Existing staged changes were preserved; no commits or pushes were created.

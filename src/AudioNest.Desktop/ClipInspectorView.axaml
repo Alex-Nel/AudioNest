@@ -10,6 +10,27 @@
     <GridLength x:Key="SliderPreContentMargin">8</GridLength>
     <GridLength x:Key="SliderPostContentMargin">8</GridLength>
   </UserControl.Resources>
+  <UserControl.Styles>
+    <Style Selector="Border.inspectorDivider">
+      <Setter Property="Height" Value="5" />
+      <Setter Property="Background" Value="{DynamicResource InspectorDivider}" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="TextBox.globalProperty">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="CheckBox.globalProperty">
+      <!-- The Fluent indicator row needs its theme minimum (normally 32 px).
+           Keep height automatic so its 20 px box cannot be clipped. -->
+      <Setter Property="Padding" Value="4,0" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
   <UserControl.DataTemplates>
     <!-- Each effect owns its editor template; multi-parameter effects can supply
          dedicated views without changing the inspector's section container. -->
@@ -39,24 +60,24 @@
       </StackPanel>
     </DataTemplate>
   </UserControl.DataTemplates>
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Spacing="14" Margin="16">
-      <TextBlock Text="CLIP" Classes="section" />
+  <ScrollViewer x:Name="InspectorScroll" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="12" Margin="0,12">
+      <TextBlock x:Name="InspectorTitle" Text="Clip Inspector" Classes="section" FontSize="12" Margin="12,0" />
       <!-- Permanent, non-removable global section. Duration/source bounds remain
            read-only; timeline trimming owns source-region edits. -->
-      <StackPanel Spacing="8">
-        <TextBlock Text="Global properties" FontWeight="SemiBold" />
-        <StackPanel DataContext="{Binding Properties}" x:DataType="local:ClipPropertiesViewModel" Spacing="8">
+      <StackPanel Spacing="6" Margin="12,0">
+        <TextBlock Text="Global properties" FontWeight="SemiBold" FontSize="12" />
+        <StackPanel DataContext="{Binding Properties}" x:DataType="local:ClipPropertiesViewModel" Spacing="5">
           <TextBlock Text="Name" FontSize="11" />
-          <TextBox x:Name="ClipNameEditor" Text="{Binding Name}" MaxLength="120" IsEnabled="{Binding CanEdit}"
+          <TextBox x:Name="ClipNameEditor" Classes="globalProperty" Text="{Binding Name}" MaxLength="120" IsEnabled="{Binding CanEdit}"
                    a:AutomationProperties.Name="Clip name" />
           <WrapPanel>
-            <CheckBox x:Name="ClipMuteBox" Content="Muted" IsChecked="{Binding Muted}" IsEnabled="{Binding CanEdit}" Margin="0,0,14,0" />
-            <CheckBox x:Name="ClipLockBox" Content="Locked" IsChecked="{Binding Locked}" IsEnabled="{Binding CanEdit}"
+            <CheckBox x:Name="ClipMuteBox" Classes="globalProperty" Content="Muted" IsChecked="{Binding Muted}" IsEnabled="{Binding CanEdit}" Margin="0,0,12,0" />
+            <CheckBox x:Name="ClipLockBox" Classes="globalProperty" Content="Locked" IsChecked="{Binding Locked}" IsEnabled="{Binding CanEdit}"
                       ToolTip.Tip="Prevent moving or trimming this clip" />
           </WrapPanel>
           <TextBlock Text="Timeline start (seconds)" FontSize="11" />
-          <TextBox x:Name="ClipStartEditor" Text="{Binding StartText}" IsEnabled="{Binding CanMove}"
+          <TextBox x:Name="ClipStartEditor" Classes="globalProperty" Text="{Binding StartText}" IsEnabled="{Binding CanMove}"
                    a:AutomationProperties.Name="Clip start in seconds" />
           <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#BA4545" TextWrapping="Wrap" FontSize="11" />
           <Grid ColumnDefinitions="32,*,45">
@@ -74,25 +95,26 @@
             <TextBlock Grid.Column="2" Text="{Binding BalanceText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
           </Grid>
         </StackPanel>
-        <TextBlock Text="{Binding SelectionText}" TextWrapping="Wrap" LineHeight="20" FontSize="12" />
+        <TextBlock Text="{Binding SelectionText}" TextWrapping="Wrap" LineHeight="18" FontSize="11" />
       </StackPanel>
-      <Border Classes="inspectorDivider" Height="3" Background="{DynamicResource EditorBorder}" />
-      <TextBlock Text="EFFECTS · IN PROCESSING ORDER" Classes="section" TextWrapping="Wrap" />
+      <Border Classes="inspectorDivider" />
       <TextBlock Text="No clip effects. Use the Effects menu to add an effect."
                  IsVisible="{Binding !HasEffects}" TextWrapping="Wrap"
-                 Foreground="{DynamicResource EditorMuted}" FontSize="12" />
+                 Foreground="{DynamicResource EditorMuted}" FontSize="12" Margin="12,0" />
       <ItemsControl x:Name="EffectSections" ItemsSource="{Binding Effects}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="local:ClipEffectEditorViewModel">
-            <StackPanel Spacing="10" IsEnabled="{Binding CanEdit}" Margin="0,0,0,14">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="×" Classes="track" Command="{Binding Remove}"
-                        ToolTip.Tip="Remove this effect" a:AutomationProperties.Name="Remove clip effect" />
-              </Grid>
-              <CheckBox Content="Enabled" IsChecked="{Binding Enabled}" />
-              <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch" />
-              <Border Classes="inspectorDivider" Height="3" Background="{DynamicResource EditorBorder}" Margin="0,4,0,0" />
+            <StackPanel Margin="0,0,0,12">
+              <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}" Margin="12,0">
+                <Grid Classes="effectHeading" ColumnDefinitions="*,Auto" HorizontalAlignment="Left">
+                  <TextBlock Text="{Binding Name}" Classes="effectName" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                  <Button Grid.Column="1" Content="×" Classes="track removeEffect" Command="{Binding Remove}" Margin="8,0,0,0"
+                          ToolTip.Tip="Remove this effect" a:AutomationProperties.Name="Remove clip effect" />
+                </Grid>
+                <CheckBox Content="Enabled" IsChecked="{Binding Enabled}" />
+                <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch" />
+              </StackPanel>
+              <Border Classes="inspectorDivider" Margin="0,12,0,0" />
             </StackPanel>
           </DataTemplate>
         </ItemsControl.ItemTemplate>

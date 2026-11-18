@@ -9,7 +9,7 @@
     <Menu x:Name="EditorMenuBar" Height="24" Background="{DynamicResource EditorPanel}" />
     <Border Grid.Row="1" Padding="10,7" Background="{DynamicResource EditorPanel}"
             BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,1,0,1">
-      <Grid x:Name="ToolbarGrid" ColumnDefinitions="Auto,Auto,*,5,240">
+      <Grid x:Name="ToolbarGrid" ColumnDefinitions="Auto,Auto,*,5,300">
         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
           <Button x:Name="SkipBackButton" Classes="transport" Click="SkipBackClick" IsEnabled="{Binding CanEdit}" ToolTip.Tip="Skip to start (Home)" a:AutomationProperties.Name="Skip to start">
             <PathIcon Data="{StaticResource IconBackward}" />

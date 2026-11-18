@@ -96,14 +96,18 @@ Use disposable test material first:
 - Use the Effects menu for gain/limiter sections, adjust each independently,
   bypass/remove one, and undo. Check processing order, parameter persistence,
   focus stability, live drag preview, and scrolling at the narrowest inspector
-  width. The global section remains permanent. Inspect full-width 3 px separators,
-  no section boxes, and no split/delete/nudge/add-effect/track buttons in the inspector.
+  width. The global section remains permanent. Inspect edge-to-edge 5 px separators
+  with distinct contrast in both themes, the "Clip Inspector" title, 26 px text
+  fields, fully visible checked/unchecked global checkboxes (automatic theme-safe
+  height), and remove buttons immediately beside effect names.
+  There should be no processing-order caption, section boxes, or
+  split/delete/nudge/add-effect/track buttons in the inspector.
 - Drag the inspector divider to both limits, shrink/restore the window, and
   verify remembered width and timeline/ruler alignment. Change clip selection and
   confirm status text and inspector metadata/effect rows follow the selection.
 - Resize the meter section independently, inspect consistent toolbar button sizes,
   adjacent skip buttons, grouped menu separators, and the softer light-mode canvas.
-  The default meter section should be 240 px wide, with 10 px-tall meter bars
+  The default meter section should be 300 px wide, with 10 px-tall meter bars
   separated by a visible gap in both light and dark modes.
 - Confirm separate Play and Pause buttons, skip-to-start/end, and live status-bar
   microsecond time/exact frame count while playing and seeking.
@@ -126,6 +130,8 @@ Use disposable test material first:
 - Save, move both project and `.media` folder, remove the original import source,
   reopen, and export. Verify Save As does not alter the old project.
 - Close a clean project; close a dirty one and test both discard and keep editing.
+  The compact unsaved-changes dialog should center its message and button group
+  horizontally/vertically without clipping, in either theme and at OS scaling levels.
 - Run a native AOT publish on each intended target and repeat import/play/record/
   save/open/export. UI startup alone does not validate native audio deployment.
 

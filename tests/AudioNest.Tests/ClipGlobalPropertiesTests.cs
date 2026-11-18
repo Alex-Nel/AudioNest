@@ -275,7 +275,7 @@ public sealed class ClipGlobalPropertiesTests
             Assert.DoesNotContain(forbidden, buttons);
         var dividers = inspector.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("inspectorDivider")).ToArray();
         Assert.Equal(2, dividers.Length);
-        Assert.All(dividers, b => { Assert.Equal(3, b.Bounds.Height); Assert.True(b.Bounds.Width > inspector.Bounds.Width - 40); });
+        Assert.All(dividers, b => { Assert.Equal(5, b.Bounds.Height); Assert.Equal(inspector.Bounds.Width, b.Bounds.Width); });
         var volume = inspector.FindControl<ClipMixSlider>("ClipVolumeSlider")!;
         var pan = inspector.FindControl<ClipMixSlider>("ClipPanSlider")!;
         Assert.Equal(0.05, volume.TickFrequency);
@@ -293,7 +293,7 @@ public sealed class ClipGlobalPropertiesTests
         Assert.True(vm.SelectedClip.Locked);
         Assert.False(inspector.FindControl<TextBox>("ClipStartEditor")!.IsEnabled);
         var toolbar = window.FindControl<Grid>("ToolbarGrid")!;
-        Assert.Equal(240, toolbar.ColumnDefinitions[4].ActualWidth);
+        Assert.Equal(300, toolbar.ColumnDefinitions[4].ActualWidth);
         var output = window.FindControl<AudioMeterControl>("OutputMeter")!;
         var input = window.FindControl<AudioMeterControl>("InputMeter")!;
         Assert.Equal(10, output.Bounds.Height);

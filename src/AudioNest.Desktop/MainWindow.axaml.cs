@@ -17,7 +17,7 @@ public partial class MainWindow : Window
     private bool _confirmingClose;
     private bool _synchronizingScroll;
     private double _inspectorWidth = 280;
-    private double _meterWidth = 240;
+    private double _meterWidth = 300;
     private bool _altZoomUsed;
     private bool _spacePressed;
     private static readonly FilePickerFileType ProjectType = new("AudioNest project") { Patterns = ["*.audionest"] };
@@ -236,19 +236,36 @@ public partial class MainWindow : Window
     private async Task<bool> ConfirmDiscardAsync()
     {
         if (!_vm.IsDirty) return true;
-        var dialog = new Window { Title = "Unsaved changes", Width = 390, Height = 175, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var cancel = new Button { Content = "Keep editing" };
-        var discard = new Button { Content = "Discard changes" };
+        var dialog = new Window { Title = "Unsaved changes", Width = 360, Height = 160, CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var cancel = new Button { Name = "KeepEditingButton", Content = "Keep editing" };
+        var discard = new Button { Name = "DiscardChangesButton", Content = "Discard changes" };
         cancel.Click += (_, _) => dialog.Close(false);
         discard.Click += (_, _) => dialog.Close(true);
         dialog.Content = new StackPanel
         {
+            Name = "DiscardDialogContent",
             Margin = new Avalonia.Thickness(24),
-            Spacing = 20,
+            Spacing = 18,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
             Children =
             {
-                new TextBlock { Text = "Discard unsaved project changes?" },
-                new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 12, Children = { cancel, discard } }
+                new TextBlock
+                {
+                    Name = "DiscardDialogMessage",
+                    Text = "Discard unsaved project changes?",
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    TextAlignment = Avalonia.Media.TextAlignment.Center,
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                },
+                new StackPanel
+                {
+                    Name = "DiscardDialogActions",
+                    Orientation = Avalonia.Layout.Orientation.Horizontal,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    Spacing = 12,
+                    Children = { cancel, discard }
+                }
             }
         };
         return await dialog.ShowDialog<bool>(this);

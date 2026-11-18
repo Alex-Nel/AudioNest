@@ -74,8 +74,9 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   Below 1100 px window width, the inspector hides to give the timeline room.
   Timeline editing/effects remain available through the menus. At wider sizes, drag its left
   divider to resize it (200–520 px); that width is retained during the session.
-  The inspector has global clip properties and individual effect editors,
-  separated by full-width lines rather than boxes.
+  **Clip Inspector** has compact global clip properties and individual effect
+  editors, separated by edge-to-edge, high-contrast 5 px lines rather than boxes.
+  Each effect's remove button sits beside its name.
 - The compact status bar shows playhead time to six decimal places plus the exact
   project-frame index. Its left side identifies the selected track and clip;
   operation errors and recording/busy state remain visible.
@@ -98,7 +99,7 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   input (microphone), with dBFS readouts and peak decay. Input is metered **only
   while recording**: startup does not open or monitor the microphone.
   These are peak meters, not RMS/perceived-loudness or LUFS analysis.
-  Their section defaults to 240 px wide; each meter is 10 px tall with space between.
+  Their section defaults to 300 px wide; each meter is 10 px tall with space between.
   Drag the divider beside this section to resize it (140–360 px, subject to window size).
 
 ### Editing behavior

@@ -21,6 +21,7 @@
           <SolidColorBrush x:Key="EditorBackground">#FFFFFF</SolidColorBrush>
           <SolidColorBrush x:Key="EditorPanel">#F5F5F5</SolidColorBrush>
           <SolidColorBrush x:Key="EditorBorder">#D9D9D9</SolidColorBrush>
+          <SolidColorBrush x:Key="InspectorDivider">#B5B8BC</SolidColorBrush>
           <SolidColorBrush x:Key="EditorText">#202124</SolidColorBrush>
           <SolidColorBrush x:Key="EditorMuted">#666A70</SolidColorBrush>
           <SolidColorBrush x:Key="EditorSelected">#E6EFF8</SolidColorBrush>
@@ -30,6 +31,7 @@
           <SolidColorBrush x:Key="EditorBackground">#202124</SolidColorBrush>
           <SolidColorBrush x:Key="EditorPanel">#292A2D</SolidColorBrush>
           <SolidColorBrush x:Key="EditorBorder">#45474B</SolidColorBrush>
+          <SolidColorBrush x:Key="InspectorDivider">#686B72</SolidColorBrush>
           <SolidColorBrush x:Key="EditorText">#F0F0F0</SolidColorBrush>
           <SolidColorBrush x:Key="EditorMuted">#B4B7BE</SolidColorBrush>
           <SolidColorBrush x:Key="EditorSelected">#33475B</SolidColorBrush>
