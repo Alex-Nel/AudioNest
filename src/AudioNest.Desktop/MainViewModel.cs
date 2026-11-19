@@ -34,6 +34,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly Dictionary<Guid, double> _trackHeights = [];
     private TimelineTool _tool;
     private bool _keepPlayingEdit;
+    private bool _trackFocused;
+    private RenderPlan? _preparedPlan;
+    private RenderPlan? _pendingEditPlan;
 
     public MainViewModel(ProjectSession session, AudioLibrary library, AudioTransport transport,
         IAudioBackend backend, IProjectStore store, string? workspace = null)
@@ -70,6 +73,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public IReadOnlySet<Guid> SelectedClipIds => _selected;
     public bool IsClipSelected(Guid id) => _selected.Contains(id);
     public Guid? SelectedTrackId { get; private set; }
+    public bool IsTrackFocused => _trackFocused && SelectedTrack is not null && SelectedClip is null;
+    public EffectTarget? FocusedTarget => SelectedClip is { } clip ? new(clip.Id) :
+        IsTrackFocused && SelectedTrack is { } track ? new(track.Id, true) : null;
+    public bool HasEffectTarget => CanEdit && FocusedTarget is not null;
     public long Position => _transport.Position;
     public bool IsDirty => _session.IsDirty;
     public bool IsBusy { get; private set; }
@@ -80,7 +87,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool CanPlay => CanEdit && !_transport.IsPlaying && Project.Duration > 0;
     public bool CanPause => CanEdit && _transport.IsPlaying;
     public bool HasSelectedClip => CanEdit && SelectedClip is not null;
-    public bool HasSelectedTrack => CanEdit && SelectedTrack is not null;
+    public bool HasSelectedTrack => CanEdit && SelectedTrack is not null && FocusedTarget is not null;
     public bool IsSnappingEnabled
     {
         get => _isSnappingEnabled;
@@ -162,6 +169,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Edit("Rename track", p => ProjectEdits.UpdateTrack(p, id, t => t with { Name = name }), keepPlaying: true);
     }
     public AudioBuffer Buffer(Guid asset) => _library[asset];
+    private RenderPlan PreparePlan(AudioProject project)
+    {
+        var next = new RenderPlan(project, id => _library[id], previous: _preparedPlan);
+        _preparedPlan = next;
+        return next;
+    }
     private PcmFormat Format => new(Project.SampleRate, 2);
 
     private void Notify()
@@ -177,13 +190,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void OnProjectChanged()
     {
-        if (SelectedTrack is null) SelectedTrackId = Project.Tracks.FirstOrDefault()?.Id;
+        if (SelectedTrack is null) { _trackFocused = false; SelectedTrackId = Project.Tracks.FirstOrDefault()?.Id; }
         var valid = Project.Tracks.SelectMany(t => t.Clips).Select(c => c.Id).ToHashSet();
         _selected.RemoveWhere(id => !valid.Contains(id));
         if (SelectedClip is null) SelectedClipId = _selected.Cast<Guid?>().FirstOrDefault();
         if (SelectedClipId is { } selected) SelectedTrackId = ProjectEdits.FindTrack(Project, selected).Id;
         SyncTrackHeaders();
-        var plan = new RenderPlan(Project, id => _library[id]);
+        var plan = _pendingEditPlan ?? PreparePlan(Project);
         if (_keepPlayingEdit) _transport.UpdatePlan(plan);
         else _transport.SetPlan(plan);
         Notify();
@@ -214,7 +227,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private static double MeterLevel(float peak) => peak <= 0 ? 0 : Math.Clamp((20 * Math.Log10(peak) + 60) / 60, 0, 1);
     private static string Decibels(float peak) => peak <= 0 ? "−∞ dBFS" : $"{20 * Math.Log10(peak):0.0} dBFS";
 
-    public void Select(Guid? track, Guid? clip, bool additive = false, bool preserveGroup = false)
+    public void Select(Guid? track, Guid? clip, bool additive = false, bool preserveGroup = false, bool focusTrack = true)
     {
         if (!CanEdit) return;
         if (additive && clip is { } toggle)
@@ -230,8 +243,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         SelectedTrackId = track;
         SelectedClipId = clip;
         if (clip is { } primary) SelectedTrackId = ProjectEdits.FindTrack(Project, primary).Id;
+        _trackFocused = clip is null && track is not null && focusTrack;
         Notify();
     }
+    public void ClearSelection(Guid? destination = null) => Select(destination ?? SelectedTrackId, null, focusTrack: false);
 
     public void Seek(long frame) { if (CanEdit) { _transport.Seek(frame); Notify(); } }
     public void SeekFromRuler(long frame) => Seek(IsLeftShiftDown
@@ -268,12 +283,20 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (!keepPlaying) _transport.Pause();
             _keepPlayingEdit = keepPlaying;
-            _session.Apply(name, edit);
+            var next = edit(Project);
+            if (next != Project)
+            {
+                next.Validate();
+                // Analysis/processor preparation can fail. Do it before history
+                // publication so the project and playing graph remain in sync.
+                _pendingEditPlan = PreparePlan(next);
+                _session.Apply(name, _ => next);
+            }
             _status = name;
             Notify();
         }
         catch (Exception ex) { ReportError(ex); }
-        finally { _keepPlayingEdit = false; }
+        finally { _keepPlayingEdit = false; _pendingEditPlan = null; }
     }
 
     public void AddTrack() => AddTrack(TrackChannelLayout.Stereo);
@@ -364,33 +387,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public void ChangeTrackGain(Guid id, float decibels) => Edit("Track gain",
-        p => ProjectEdits.UpdateTrack(p, id, t =>
-        {
-            var gain = t.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1;
-            return t with
-            {
-                Effects = t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0,
-                    new EffectSpec(EffectKind.Gain, Math.Clamp(gain * MathF.Pow(10, decibels / 20), 0, 2)))
-            };
-        }), keepPlaying: true);
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Volume = Math.Clamp(t.Volume * MathF.Pow(10, decibels / 20), 0, 2) }), keepPlaying: true);
     public void SetTrackVolume(Guid id, float volume) => Edit("Track volume",
-        p => ProjectEdits.UpdateTrack(p, id, t =>
-        {
-            var clamped = float.IsFinite(volume) ? Math.Clamp(volume, 0, 2) : 1;
-            if ((t.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1) == clamped) return t;
-            return t with { Effects = t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0, new EffectSpec(EffectKind.Gain, clamped)) };
-        }), keepPlaying: true);
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Volume = float.IsFinite(volume) ? Math.Clamp(volume, 0, 2) : 1 }), keepPlaying: true);
     public void PreviewTrackMix(Guid id, double? volume, double? pan)
     {
         if (!CanEdit) return;
         var preview = ProjectEdits.UpdateTrack(Project, id, t => t with
         {
-            Effects = volume is { } v
-                ? t.Effects.RemoveAll(e => e.Kind == EffectKind.Gain).Insert(0, new EffectSpec(EffectKind.Gain, (float)v))
-                : t.Effects,
+            Volume = (float)(volume ?? t.Volume),
             Pan = t.Layout == TrackChannelLayout.Mono ? 0 : (float)(pan ?? t.Pan)
         });
-        _transport.UpdatePlan(new RenderPlan(preview, asset => _library[asset]));
+        _transport.UpdatePlan(PreparePlan(preview));
     }
 
     public void SetClipName(Guid clip, string name) => Edit("Clip name",
@@ -411,14 +419,52 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         if (!CanEdit) return;
         var preview = ProjectEdits.UpdateClip(Project, clip, c => ClipMix(c, volume, pan));
-        _transport.UpdatePlan(new RenderPlan(preview, asset => _library[asset]));
+        _transport.UpdatePlan(PreparePlan(preview));
     }
     public void AddClipEffect(EffectKind kind)
     {
         if (SelectedClipId is not { } clip) return;
-        var effect = new EffectSpec(kind, kind == EffectKind.Gain ? 1 : 0.9f);
+        var effect = BuiltInEffects.Create(kind);
         Edit("Add clip effect", p => ProjectEdits.UpdateClip(p, clip, c => c with { Effects = c.Effects.Add(effect) }), keepPlaying: true);
     }
+    public void AddEffect(EffectKind kind)
+    {
+        if (!HasEffectTarget || FocusedTarget is not { } target) return;
+        var effect = BuiltInEffects.Create(kind);
+        Edit($"Add {BuiltInEffects.Name(kind)}", p => UpdateEffects(p, target, chain => chain.Add(effect)), keepPlaying: true);
+    }
+    private static AudioProject UpdateEffects(AudioProject project, EffectTarget target, Func<ImmutableArray<EffectSpec>, ImmutableArray<EffectSpec>> change) =>
+        target.IsTrack ? ProjectEdits.UpdateTrack(project, target.Id, t =>
+        {
+            var next = change(t.Effects);
+            return next == t.Effects ? t : t with { Effects = next };
+        }) : ProjectEdits.UpdateClip(project, target.Id, c =>
+        {
+            var next = change(c.Effects);
+            return next == c.Effects ? c : c with { Effects = next };
+        });
+    public void ChangeEffect(EffectTarget target, int index, EffectSpec expected, EffectSpec? replacement)
+    {
+        if (!HasEffectTarget || FocusedTarget != target) return;
+        Edit(replacement is null ? "Remove effect" : "Change effect", p => UpdateEffects(p, target, chain =>
+            index < 0 || index >= chain.Length || !ReferenceEquals(chain[index], expected) || replacement == expected ? chain :
+                replacement is null ? chain.RemoveAt(index) : chain.SetItem(index, replacement)), keepPlaying: true);
+    }
+    public void PreviewEffect(EffectTarget target, int index, EffectSpec expected, EffectSpec replacement)
+    {
+        if (!HasEffectTarget || FocusedTarget != target) return;
+        var preview = UpdateEffects(Project, target, chain =>
+            index < 0 || index >= chain.Length || !ReferenceEquals(chain[index], expected) ? chain : chain.SetItem(index, replacement));
+        _transport.UpdatePlan(PreparePlan(preview));
+    }
+    public void SetTrackName(Guid id, string name) => Edit("Track name",
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Name = name }), keepPlaying: true);
+    public void SetTrackMuted(Guid id, bool muted) => Edit("Track mute",
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Muted = muted }), keepPlaying: true);
+    public void SetTrackSolo(Guid id, bool solo) => Edit("Track solo",
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Solo = solo }), keepPlaying: true);
+    public void SetTrackMix(Guid id, double? volume, double? pan) => Edit("Track mix",
+        p => ProjectEdits.UpdateTrack(p, id, t => t with { Volume = (float)(volume ?? t.Volume), Pan = (float)(pan ?? t.Pan) }), keepPlaying: true);
     public void ChangeClipEffect(Guid clip, int index, EffectSpec expected, EffectSpec? replacement)
     {
         Edit(replacement is null ? "Remove clip effect" : "Change clip effect", p => ProjectEdits.UpdateClip(p, clip, c =>
@@ -431,11 +477,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         var preview = ProjectEdits.UpdateClip(Project, clip, c =>
             index < 0 || index >= c.Effects.Length || !ReferenceEquals(c.Effects[index], expected) ? c
                 : c with { Effects = c.Effects.SetItem(index, replacement) });
-        _transport.UpdatePlan(new RenderPlan(preview, asset => _library[asset]));
+        _transport.UpdatePlan(PreparePlan(preview));
     }
     public void RestoreMixPreview()
     {
-        if (CanEdit) _transport.UpdatePlan(new RenderPlan(Project, asset => _library[asset]));
+        if (CanEdit) _transport.UpdatePlan(PreparePlan(Project));
     }
     public void SetTrackPan(Guid id, float pan) => Edit("Track stereo balance",
         p => ProjectEdits.UpdateTrack(p, id, t => t with { Pan = t.Layout == TrackChannelLayout.Mono ? 0 : Math.Clamp(pan, -1, 1) }), keepPlaying: true);
@@ -612,7 +658,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (!CanEdit) return;
         await RunAsync(async () =>
         {
-            var plan = new RenderPlan(Project, id => _library[id]);
+            var plan = new RenderPlan(Project, id => _library[id], previous: _preparedPlan);
             await Task.Run(() => AudioExporter.Export(plan, path, fileFormat, _backend));
             _status = $"{AudioFileType.For(fileFormat).Name} exported.";
         });

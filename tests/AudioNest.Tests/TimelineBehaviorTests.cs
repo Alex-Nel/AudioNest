@@ -203,7 +203,8 @@ public sealed class TimelineBehaviorTests
         var window = new MainWindow(vm) { WindowState = WindowState.Normal };
         window.Show(); Layout();
         var menu = window.FindControl<Menu>("EditorMenuBar")!;
-        Assert.All(menu.Items.OfType<MenuItem>(), section => Assert.Contains(section.Items, i => i is Separator));
+        Assert.All(menu.Items.OfType<MenuItem>().Where(section => !Equals(section.Header, "Effects")),
+            section => Assert.Contains(section.Items, i => i is Separator));
         var file = menu.Items.OfType<MenuItem>().First();
         Assert.Contains(file.Items.OfType<MenuItem>(), i => (string)i.Header! == "Import audio…");
         foreach (var name in new[] { "ZoomInButton", "ZoomOutButton", "FitButton", "ImportButton" })

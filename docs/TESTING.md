@@ -102,6 +102,26 @@ Use disposable test material first:
   height), and remove buttons immediately beside effect names.
   There should be no processing-order caption, section boxes, or
   split/delete/nudge/add-effect/track buttons in the inspector.
+- Click a clip, header, blank track area, and blank area below tracks. Check
+  Clip/Track/empty inspector focus without moving the playhead. Track Inspector
+  must hide timeline start, replace lock with solo, synchronize the left header's
+  name/mute/solo/volume/pan, and leave clip properties/effects untouched.
+- Effects must offer only Add Gain/Compressor/Limiter/Normalizer, without clip/
+  track duplicates or toggles. No-focus items must be disabled; each invocation
+  appends an independent instance to the focused target. Check typed parameters,
+  bypass, removal, history/save/open, mono tracks, and stale-editor/preview safety
+  when switching between clip and track.
+- Listen to compressor threshold/ratio/attack/release/makeup behavior with transients,
+  steady tones, and asymmetric stereo. Check limiter ceiling/release without
+  shifting stereo balance. Compare normalizer output to a known sample peak, with
+  source trims, preceding effects, overlapping clips, silence, and quiet material.
+  These are peak processors, not LUFS or inter-sample true-peak implementations.
+- Compare dynamics playback/export at different device buffer sizes; seek/reset
+  should restart envelopes, while unchanged effects retain state across live mix
+  edits. Normalizer preparation must not run in the callback; test longer/dense
+  material for acceptable control-thread preparation time and cached target edits.
+- Open v1/v2/v3 projects and verify unchanged sound, unity new track volume, preserved
+  legacy gain/clipping, v4 saving, and compressor/limiter parameter round trips.
 - Drag the inspector divider to both limits, shrink/restore the window, and
   verify remembered width and timeline/ruler alignment. Change clip selection and
   confirm status text and inspector metadata/effect rows follow the selection.

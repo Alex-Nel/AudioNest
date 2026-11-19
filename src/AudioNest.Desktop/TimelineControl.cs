@@ -203,8 +203,9 @@ public sealed class TimelineControl : Control
         {
             var track = _vm.Project.Tracks[row];
             var clip = HitClip(_press);
-            _vm.Select(track.Id, clip?.Id, _vm.IsSelectionTool && _vm.IsLeftShiftDown,
-                preserveGroup: clip is not null && _vm.IsClipSelected(clip.Id));
+            if (clip is null) _vm.ClearSelection(track.Id);
+            else _vm.Select(track.Id, clip.Id, _vm.IsSelectionTool && _vm.IsLeftShiftDown,
+                preserveGroup: _vm.IsClipSelected(clip.Id), focusTrack: false);
             if (_vm.IsRazorTool)
             {
                 if (clip is not null) _vm.SplitAt(clip.Id, Frame(_press.X));
@@ -219,6 +220,7 @@ public sealed class TimelineControl : Control
             if (clip is not null) _gesture = GestureAt(clip, _press.X);
             if (clip is not null) e.Pointer.Capture(this);
         }
+        else _vm.ClearSelection();
         // Deliberately never seek here: only the ruler owns cursor gestures.
         e.Handled = true;
     }
@@ -273,10 +275,11 @@ public sealed class TimelineControl : Control
         e.Handled = true;
         if (_vm is null || !_vm.CanEdit || !e.TryGetPosition(this, out var point) || point.Y < 0) return;
         var row = _vm.TrackIndexAt(point.Y);
-        if (row < 0) return;
+        if (row < 0) { _vm.ClearSelection(); return; }
         var track = _vm.Project.Tracks[row];
         var clip = HitClip(point);
-        _vm.Select(track.Id, clip?.Id, preserveGroup: clip is not null && _vm.IsClipSelected(clip.Id));
+        if (clip is null) _vm.ClearSelection(track.Id);
+        else _vm.Select(track.Id, clip.Id, preserveGroup: _vm.IsClipSelected(clip.Id));
         ContextMenu = TimelineContextMenus.Clip(_vm, track.Id, clip, Frame(point.X));
         ContextMenu.Open(this);
     }

@@ -16,6 +16,7 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
 {
     private IAudioOutput? _output;
     private RenderPlan? _plan;
+    private RenderPlan? _renderedPlan;
     private long _position;
     private int _playing;
     public long Position => Interlocked.Read(ref _position);
@@ -60,6 +61,7 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
     {
         Volatile.Write(ref _playing, 0);
         _output?.Stop();
+        _renderedPlan = null;
         OutputMeter.Clear();
     }
 
@@ -89,6 +91,11 @@ public sealed class AudioTransport(IAudioBackend backend) : ITransportClock, IDi
             output.Clear();
             Volatile.Write(ref _playing, 0);
             return;
+        }
+        if (!ReferenceEquals(plan, _renderedPlan))
+        {
+            if (_renderedPlan is { } previous) plan.AdoptStateFrom(previous);
+            _renderedPlan = plan;
         }
         plan.Render(position, output);
         OutputMeter.Measure(output);

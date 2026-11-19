@@ -5,8 +5,9 @@
 | Multitrack timeline with waveforms | Implemented; grouped selection/dragging, rename, resizable tracks |
 | Split/delete/move shortcuts | Implemented; razor, edge trims, cut/copy/paste, and context menus |
 | Non-destructive editing | Implemented; shared sources and bounded undo/redo |
-| Clip, segment, and track effects | Gain/hard limiter; unboxed typed clip editors, immediate global name/start/mute/lock/volume/pan; split clips define segments |
-| Noise reduction/compressor/normalizer/reverb/echo/distortion | Not implemented |
+| Clip, segment, and track effects | Focused Clip/Track Inspector; add-only scoped Effects menu; independent global volume; split clips define segments |
+| Compressor/limiter/normalizer | Implemented: stereo-linked dynamics and analyzed sample-peak normalization; legacy hard clipper retained |
+| Noise reduction/reverb/echo/distortion | Not implemented |
 | Independent pitch, tempo, speed | Not implemented |
 | VST 2.x / 3.x | Not implemented; ABI/licensing/isolation design still needed |
 | Microphone recording | Default mono input, live waveform draft, finalized WAV imported as a clip |
@@ -30,8 +31,8 @@
      and configurable shortcuts; group clipboard/dragging, trims, and snapping exist.
 3. **DSP**
    - Block processor tails, pre-roll, latency compensation, meters, automation.
-   - Compressor/normalizer, echo/reverb, noise profiling/reduction, distortion.
-   - Offline analysis jobs for normalization/noise profiling rather than audio-thread scans.
+   - Echo/reverb, noise profiling/reduction, distortion, true-peak/LUFS analysis.
+   - Background/progress/cancel orchestration for normalization/noise profiling.
    - Independent time stretch/pitch shift behind a dedicated processor adapter.
 4. **Production recording**
    - Dry/wet recording policy, effects monitoring, overdub transport, latency calibration.

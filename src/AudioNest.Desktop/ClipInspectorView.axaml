@@ -55,14 +55,39 @@
         <local:EffectParameterSlider Minimum="0.01" Maximum="1" Value="{Binding Value}"
                TickFrequency="0.01" IsSnapToTickEnabled="True" SmallChange="0.01" LargeChange="0.1"
                a:AutomationProperties.Name="Clip limiter ceiling" />
-        <TextBlock Text="Hard-clips peaks above this ceiling." FontSize="11" TextWrapping="Wrap"
-                   Foreground="{DynamicResource EditorMuted}" />
+        <ItemsControl ItemsSource="{Binding Parameters}" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type local:EffectParameterViewModel}" x:DataType="local:EffectParameterViewModel">
+      <StackPanel Spacing="4" Margin="0,0,0,6">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="12" />
+        </Grid>
+        <local:EffectParameterSlider Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding Value}"
+                                    TickFrequency="{Binding Step}" SmallChange="{Binding Step}" IsSnapToTickEnabled="True"
+                                    a:AutomationProperties.Name="{Binding Name}" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type local:CompressorEffectEditorViewModel}" x:DataType="local:CompressorEffectEditorViewModel">
+      <ItemsControl ItemsSource="{Binding Parameters}" />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type local:NormalizerEffectEditorViewModel}" x:DataType="local:NormalizerEffectEditorViewModel">
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="Target peak" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding ValueText}" />
+        </Grid>
+        <local:EffectParameterSlider Minimum="0.01" Maximum="1" Value="{Binding Value}" TickFrequency="0.01"
+                                    SmallChange="0.01" IsSnapToTickEnabled="True" a:AutomationProperties.Name="Target peak" />
+        <TextBlock Text="Analyzes the full clip or track before playback. Not loudness/LUFS normalization."
+                   FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" />
       </StackPanel>
     </DataTemplate>
   </UserControl.DataTemplates>
   <ScrollViewer x:Name="InspectorScroll" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="12" Margin="0,12">
-      <TextBlock x:Name="InspectorTitle" Text="Clip Inspector" Classes="section" FontSize="12" Margin="12,0" />
+      <TextBlock x:Name="InspectorTitle" Text="{Binding Title}" Classes="section" FontSize="12" Margin="12,0" />
       <!-- Permanent, non-removable global section. Duration/source bounds remain
            read-only; timeline trimming owns source-region edits. -->
       <StackPanel Spacing="6" Margin="12,0">
@@ -70,35 +95,35 @@
         <StackPanel DataContext="{Binding Properties}" x:DataType="local:ClipPropertiesViewModel" Spacing="5">
           <TextBlock Text="Name" FontSize="11" />
           <TextBox x:Name="ClipNameEditor" Classes="globalProperty" Text="{Binding Name}" MaxLength="120" IsEnabled="{Binding CanEdit}"
-                   a:AutomationProperties.Name="Clip name" />
+                   a:AutomationProperties.Name="{Binding NameLabel}" />
           <WrapPanel>
             <CheckBox x:Name="ClipMuteBox" Classes="globalProperty" Content="Muted" IsChecked="{Binding Muted}" IsEnabled="{Binding CanEdit}" Margin="0,0,12,0" />
-            <CheckBox x:Name="ClipLockBox" Classes="globalProperty" Content="Locked" IsChecked="{Binding Locked}" IsEnabled="{Binding CanEdit}"
-                      ToolTip.Tip="Prevent moving or trimming this clip" />
+            <CheckBox x:Name="ClipLockBox" Classes="globalProperty" Content="{Binding SecondaryStateLabel}" IsChecked="{Binding SecondaryState}" IsEnabled="{Binding CanEdit}"
+                      ToolTip.Tip="{Binding SecondaryStateHint}" />
           </WrapPanel>
-          <TextBlock Text="Timeline start (seconds)" FontSize="11" />
-          <TextBox x:Name="ClipStartEditor" Classes="globalProperty" Text="{Binding StartText}" IsEnabled="{Binding CanMove}"
+          <TextBlock Text="Timeline start (seconds)" FontSize="11" IsVisible="{Binding ShowTimelineStart}" />
+          <TextBox x:Name="ClipStartEditor" Classes="globalProperty" Text="{Binding StartText}" IsEnabled="{Binding CanMove}" IsVisible="{Binding ShowTimelineStart}"
                    a:AutomationProperties.Name="Clip start in seconds" />
           <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="#BA4545" TextWrapping="Wrap" FontSize="11" />
           <Grid ColumnDefinitions="32,*,45">
             <TextBlock Text="Vol" FontSize="11" VerticalAlignment="Center" />
             <local:ClipMixSlider x:Name="ClipVolumeSlider" Grid.Column="1" Value="{Binding Volume}" Minimum="0" Maximum="2"
                    TickFrequency="0.05" IsSnapToTickEnabled="True" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanEdit}"
-                   a:AutomationProperties.Name="Clip volume" ToolTip.Tip="Volume: 0 is silence, 1 is original, 2 is twice the amplitude" />
+                   a:AutomationProperties.Name="{Binding VolumeLabel}" ToolTip.Tip="Volume: 0 is silence, 1 is original, 2 is twice the amplitude" />
             <TextBlock Grid.Column="2" Text="{Binding VolumeText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
           </Grid>
           <Grid ColumnDefinitions="32,*,45">
             <TextBlock Text="Pan" FontSize="11" VerticalAlignment="Center" />
             <local:ClipMixSlider x:Name="ClipPanSlider" Grid.Column="1" IsPan="True" Value="{Binding Pan}" Minimum="-1" Maximum="1"
                    TickFrequency="0.05" IsSnapToTickEnabled="True" SmallChange="0.05" LargeChange="0.25" IsEnabled="{Binding CanPan}"
-                   a:AutomationProperties.Name="Clip stereo balance" ToolTip.Tip="Clip stereo balance; disabled on mono tracks" />
+                   a:AutomationProperties.Name="{Binding PanLabel}" ToolTip.Tip="Stereo balance; disabled on mono tracks" />
             <TextBlock Grid.Column="2" Text="{Binding BalanceText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
           </Grid>
         </StackPanel>
         <TextBlock Text="{Binding SelectionText}" TextWrapping="Wrap" LineHeight="18" FontSize="11" />
       </StackPanel>
       <Border Classes="inspectorDivider" />
-      <TextBlock Text="No clip effects. Use the Effects menu to add an effect."
+      <TextBlock Text="No effects. Use the Effects menu to add an effect."
                  IsVisible="{Binding !HasEffects}" TextWrapping="Wrap"
                  Foreground="{DynamicResource EditorMuted}" FontSize="12" Margin="12,0" />
       <ItemsControl x:Name="EffectSections" ItemsSource="{Binding Effects}">

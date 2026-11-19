@@ -13,13 +13,18 @@ public sealed class EffectParameterSlider : Slider
     {
         AddHandler(PointerPressedEvent, (_, e) =>
         {
-            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed &&
-                DataContext is SingleParameterEffectEditorViewModel editor) editor.BeginAdjustment();
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            if (DataContext is ClipEffectEditorViewModel editor) editor.BeginAdjustment();
+            else if (DataContext is EffectParameterViewModel parameter) parameter.BeginAdjustment();
         }, RoutingStrategies.Tunnel);
         void Finish()
         {
-            var editor = DataContext as SingleParameterEffectEditorViewModel;
-            Dispatcher.UIThread.Post(() => editor?.EndAdjustment());
+            var context = DataContext;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (context is ClipEffectEditorViewModel editor) editor.EndAdjustment();
+                else if (context is EffectParameterViewModel parameter) parameter.EndAdjustment();
+            });
         }
         AddHandler(PointerReleasedEvent, (_, _) => Finish(), RoutingStrategies.Tunnel, true);
         AddHandler(PointerCaptureLostEvent, (_, _) => Finish(), RoutingStrategies.Direct, true);

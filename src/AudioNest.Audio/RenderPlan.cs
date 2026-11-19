@@ -14,33 +14,80 @@ public sealed class RenderPlan
     private readonly PreparedTrack[] _tracks;
     private readonly float[] _clipScratch;
     private readonly float[] _trackScratch;
-    private sealed record PreparedClip(AudioClip Clip, AudioBuffer Buffer, IAudioProcessor[] Effects, float Left, float Right);
-    private sealed record PreparedTrack(PreparedClip[] Clips, IAudioProcessor[] Effects, float Left, float Right, bool Mono);
+    private sealed record PreparedClip(AudioClip Clip, AudioBuffer Buffer, IAudioProcessor[] Effects, EffectSpec[] Descriptions, float Left, float Right);
+    private sealed record PreparedTrack(Guid Id, PreparedClip[] Clips, IAudioProcessor[] Effects, EffectSpec[] Descriptions, float Left, float Right, bool Mono, float Volume);
+    private long? _nextFrame;
+    private readonly bool _builtInEffects;
+    private readonly Dictionary<(Guid Id, bool Track, int Slot), Analysis> _analyses = [];
+    private sealed record Analysis(PreparedClip[] Clips, bool Mono, float Volume, EffectSpec[] Prefix, double Peak);
+    public int NormalizationAnalysisCount { get; private set; }
 
-    public RenderPlan(AudioProject project, Func<Guid, AudioBuffer> getBuffer, IAudioEffectFactory? effects = null)
+    public RenderPlan(AudioProject project, Func<Guid, AudioBuffer> getBuffer, IAudioEffectFactory? effects = null, RenderPlan? previous = null)
     {
         project.Validate();
         Format = new PcmFormat(project.SampleRate, 2);
         Duration = project.Duration;
         effects ??= new BuiltInEffectFactory();
+        _builtInEffects = effects is BuiltInEffectFactory;
         _clipScratch = new float[QuantumFrames * Format.Channels];
         _trackScratch = new float[QuantumFrames * Format.Channels];
-        IAudioProcessor[] Prepare(IEnumerable<EffectSpec> chain) =>
-            chain.Where(e => !e.Bypassed).Select(e => effects.Create(e, Format)).ToArray();
+        double PeakFor(Guid id, bool isTrack, PreparedClip[] clips, bool mono, float volume, EffectSpec[] prefix, Func<double> scan)
+        {
+            static bool SameInput(Analysis old, PreparedClip[] clips, bool mono, float volume, EffectSpec[] prefix, bool track)
+            {
+                if (old.Mono != mono || old.Volume != volume || old.Clips.Length != clips.Length || !old.Prefix.AsSpan().SequenceEqual(prefix)) return false;
+                for (var i = 0; i < clips.Length; i++)
+                {
+                    var a = old.Clips[i];
+                    var b = clips[i];
+                    if (!ReferenceEquals(a.Buffer, b.Buffer) || a.Clip.SourceOffset != b.Clip.SourceOffset ||
+                        a.Clip.Length != b.Clip.Length || a.Clip.Volume != b.Clip.Volume) return false;
+                    if (track && (a.Clip.Start != b.Clip.Start || a.Clip.Pan != b.Clip.Pan ||
+                        !a.Descriptions.AsSpan().SequenceEqual(b.Descriptions))) return false;
+                }
+                return true;
+            }
+            var key = (id, isTrack, prefix.Length);
+            double peak;
+            if (_builtInEffects && previous is { _builtInEffects: true } && previous.Format == Format &&
+                previous._analyses.TryGetValue(key, out var old) && SameInput(old, clips, mono, volume, prefix, isTrack))
+                peak = old.Peak;
+            else { NormalizationAnalysisCount++; peak = scan(); }
+            _analyses[key] = new(clips, mono, volume, prefix, peak);
+            return peak;
+        }
+        (IAudioProcessor[] Processors, EffectSpec[] Descriptions) Prepare(IEnumerable<EffectSpec> chain, Func<IAudioProcessor[], EffectSpec[], double> analyze)
+        {
+            var processors = new List<IAudioProcessor>();
+            var descriptions = chain.Where(e => !e.Bypassed).ToArray();
+            foreach (var description in descriptions)
+            {
+                var processor = effects.Create(description, Format);
+                if (processor is IPeakNormalizer normalizer)
+                    normalizer.SetInputPeak(analyze(processors.ToArray(), descriptions.AsSpan(0, processors.Count).ToArray()));
+                processors.Add(processor);
+            }
+            return (processors.ToArray(), descriptions);
+        }
         var anySolo = project.Tracks.Any(t => t.Solo);
         _tracks = project.Tracks.Where(t => !t.Muted && (!anySolo || t.Solo)).Select(t =>
-            new PreparedTrack(t.Clips.Where(c => !c.Muted).Select(c =>
+        {
+            var mono = t.Layout == TrackChannelLayout.Mono;
+            var clips = t.Clips.Where(c => !c.Muted).Select(c =>
             {
                 var buffer = getBuffer(c.AssetId);
                 if (buffer.Format != Format || c.SourceOffset + c.Length > buffer.FrameCount)
                     throw new InvalidDataException("Decoded audio does not match the project.");
-                return new PreparedClip(c, buffer, Prepare(c.Effects),
-                    t.Layout == TrackChannelLayout.Mono ? 1 : 1 - Math.Max(0, c.Pan),
-                    t.Layout == TrackChannelLayout.Mono ? 1 : 1 + Math.Min(0, c.Pan));
-            }).ToArray(), Prepare(t.Effects),
-                t.Layout == TrackChannelLayout.Mono ? 1 : 1 - Math.Max(0, t.Pan),
-                t.Layout == TrackChannelLayout.Mono ? 1 : 1 + Math.Min(0, t.Pan),
-                t.Layout == TrackChannelLayout.Mono)).ToArray();
+                var chain = Prepare(c.Effects, (prefix, descriptions) => PeakFor(c.Id, false,
+                    [new PreparedClip(c, buffer, [], [], 1, 1)], mono, 1, descriptions, () => AnalyzeClip(c, buffer, mono, prefix)));
+                return new PreparedClip(c, buffer, chain.Processors, chain.Descriptions, mono ? 1 : 1 - Math.Max(0, c.Pan), mono ? 1 : 1 + Math.Min(0, c.Pan));
+            }).ToArray();
+            var trackEffects = Prepare(t.Effects, (prefix, descriptions) => PeakFor(t.Id, true, clips, mono, t.Volume,
+                descriptions, () => AnalyzeTrack(clips, mono, t.Volume, prefix)));
+            return new PreparedTrack(t.Id, clips, trackEffects.Processors, trackEffects.Descriptions, mono ? 1 : 1 - Math.Max(0, t.Pan),
+                mono ? 1 : 1 + Math.Min(0, t.Pan), mono, t.Volume);
+        }).ToArray();
+        Reset();
     }
 
     public PcmFormat Format { get; }
@@ -49,6 +96,7 @@ public sealed class RenderPlan
     public void Render(long start, Span<float> output)
     {
         output.Clear();
+        if (_nextFrame is { } expected && expected != start) Reset();
         var totalFrames = output.Length / Format.Channels;
         for (var offset = 0; offset < totalFrames; offset += QuantumFrames)
         {
@@ -59,25 +107,8 @@ public sealed class RenderPlan
             {
                 var trackSamples = _trackScratch.AsSpan(0, block.Length);
                 trackSamples.Clear();
-                foreach (var clip in track.Clips)
-                {
-                    var from = Math.Max(blockStart, clip.Clip.Start);
-                    var to = Math.Min(blockStart + frames, clip.Clip.End);
-                    if (from >= to) continue;
-                    var clipSamples = _clipScratch.AsSpan(0, (int)(to - from) * Format.Channels);
-                    for (var i = 0; i < clipSamples.Length; i++)
-                    {
-                        var sourceFrame = clip.Clip.SourceOffset + from - clip.Clip.Start + i / Format.Channels;
-                        var sample = track.Mono
-                            ? clip.Buffer.Sample(sourceFrame, 0) * 0.5f + clip.Buffer.Sample(sourceFrame, 1) * 0.5f
-                            : clip.Buffer.Sample(sourceFrame, i % Format.Channels);
-                        clipSamples[i] = sample * clip.Clip.Volume;
-                    }
-                    Process(clipSamples, clip.Effects);
-                    var destination = (int)(from - blockStart) * Format.Channels;
-                    for (var i = 0; i < clipSamples.Length; i++)
-                        trackSamples[destination + i] += clipSamples[i] * (i % 2 == 0 ? clip.Left : clip.Right);
-                }
+                MixClips(track.Clips, track.Mono, blockStart, trackSamples);
+                Scale(trackSamples, track.Volume);
                 Process(trackSamples, track.Effects);
                 if (track.Mono)
                     for (var i = 0; i < trackSamples.Length; i += 2)
@@ -89,6 +120,110 @@ public sealed class RenderPlan
             for (var i = 0; i < block.Length; i++)
                 block[i] = blockStart + i / Format.Channels >= Duration ? 0 : Math.Clamp(block[i], -1f, 1f);
         }
+        _nextFrame = start <= long.MaxValue - totalFrames ? start + totalFrames : null;
+    }
+
+    private void FillClip(AudioClip clip, AudioBuffer buffer, bool mono, long offset, Span<float> samples)
+    {
+        for (var i = 0; i < samples.Length; i++)
+        {
+            var frame = clip.SourceOffset + offset + i / Format.Channels;
+            var sample = mono ? buffer.Sample(frame, 0) * 0.5f + buffer.Sample(frame, 1) * 0.5f : buffer.Sample(frame, i % Format.Channels);
+            samples[i] = sample * clip.Volume;
+        }
+    }
+    private void MixClips(PreparedClip[] clips, bool mono, long start, Span<float> samples)
+    {
+        var frames = samples.Length / Format.Channels;
+        foreach (var clip in clips)
+        {
+            var from = Math.Max(start, clip.Clip.Start);
+            var to = Math.Min(start + frames, clip.Clip.End);
+            if (from >= to) continue;
+            var scratch = _clipScratch.AsSpan(0, (int)(to - from) * Format.Channels);
+            FillClip(clip.Clip, clip.Buffer, mono, from - clip.Clip.Start, scratch);
+            Process(scratch, clip.Effects);
+            var destination = (int)(from - start) * Format.Channels;
+            for (var i = 0; i < scratch.Length; i++)
+                samples[destination + i] += scratch[i] * (i % 2 == 0 ? clip.Left : clip.Right);
+        }
+    }
+    private static void Scale(Span<float> samples, float gain)
+    {
+        for (var i = 0; i < samples.Length; i++) samples[i] *= gain;
+    }
+    private static double Peak(ReadOnlySpan<float> samples, double peak)
+    {
+        foreach (var sample in samples)
+        {
+            if (!float.IsFinite(sample)) throw new InvalidDataException("Effects produced non-finite audio. Reduce gain before normalizing.");
+            peak = Math.Max(peak, Math.Abs((double)sample));
+        }
+        return peak;
+    }
+    private static void Reset(IAudioProcessor[] chain) { foreach (var processor in chain) processor.Reset(); }
+    private double AnalyzeClip(AudioClip clip, AudioBuffer buffer, bool mono, IAudioProcessor[] prefix)
+    {
+        Reset(prefix);
+        var peak = 0d;
+        try
+        {
+            for (long at = 0; at < clip.Length;)
+            {
+                var frames = (int)Math.Min(QuantumFrames, clip.Length - at);
+                var samples = _clipScratch.AsSpan(0, frames * Format.Channels);
+                FillClip(clip, buffer, mono, at, samples);
+                Process(samples, prefix);
+                peak = Peak(samples, peak);
+                at += frames;
+            }
+            return peak;
+        }
+        finally { Reset(prefix); }
+    }
+    private double AnalyzeTrack(PreparedClip[] clips, bool mono, float volume, IAudioProcessor[] prefix)
+    {
+        void ClearState()
+        {
+            Reset(prefix);
+            foreach (var clip in clips) Reset(clip.Effects);
+        }
+        ClearState();
+        var peak = 0d;
+        long previousEnd = 0;
+        void Scan(long from, long to)
+        {
+            foreach (var effect in prefix) effect.AdvanceSilence(from - previousEnd);
+            for (var at = from; at < to;)
+            {
+                var frames = (int)Math.Min(QuantumFrames, to - at);
+                var samples = _trackScratch.AsSpan(0, frames * Format.Channels);
+                samples.Clear();
+                MixClips(clips, mono, at, samples);
+                Scale(samples, volume);
+                Process(samples, prefix);
+                peak = Peak(samples, peak);
+                at += frames;
+            }
+            previousEnd = to;
+        }
+        try
+        {
+            // Merge occupied ranges, so distant clips do not require scanning
+            // hours of empty timeline. Dynamics advance across gaps analytically.
+            var sorted = clips.OrderBy(c => c.Clip.Start).ToArray();
+            if (sorted.Length == 0) return 0;
+            var from = sorted[0].Clip.Start;
+            var to = sorted[0].Clip.End;
+            foreach (var clip in sorted.Skip(1))
+            {
+                if (clip.Clip.Start <= to) to = Math.Max(to, clip.Clip.End);
+                else { Scan(from, to); from = clip.Clip.Start; to = clip.Clip.End; }
+            }
+            Scan(from, to);
+            return peak;
+        }
+        finally { ClearState(); }
     }
 
     private static void Process(Span<float> samples, IAudioProcessor[] effects)
@@ -96,8 +231,32 @@ public sealed class RenderPlan
         foreach (var effect in effects) effect.Process(samples);
     }
 
+    /// <summary>Audio-thread-only handoff. Preserve envelopes of unchanged effect
+    /// records; new/edited/bypassed effects intentionally start with fresh state.</summary>
+    public void AdoptStateFrom(RenderPlan previous)
+    {
+        static void Transfer(IAudioProcessor[] next, EffectSpec[] descriptions, IAudioProcessor[] old, EffectSpec[] oldDescriptions)
+        {
+            for (var i = 0; i < next.Length; i++)
+                for (var j = 0; j < old.Length; j++)
+                    if (ReferenceEquals(descriptions[i], oldDescriptions[j])) { next[i].CopyStateFrom(old[j]); break; }
+        }
+        foreach (var track in _tracks)
+            foreach (var oldTrack in previous._tracks)
+            {
+                if (track.Id != oldTrack.Id || track.Mono != oldTrack.Mono) continue;
+                Transfer(track.Effects, track.Descriptions, oldTrack.Effects, oldTrack.Descriptions);
+                foreach (var clip in track.Clips)
+                    foreach (var oldClip in oldTrack.Clips)
+                        if (clip.Clip.Id == oldClip.Clip.Id)
+                            Transfer(clip.Effects, clip.Descriptions, oldClip.Effects, oldClip.Descriptions);
+                break;
+            }
+    }
+
     public void Reset()
     {
+        _nextFrame = null;
         foreach (var track in _tracks)
         {
             foreach (var effect in track.Effects) effect.Reset();

@@ -33,7 +33,8 @@ Microphone capture needs OS permission and an available default input device.
    The razor tool (**C**) splits directly where a clip is clicked, without seeking.
 4. Use track-header **Mute / Solo**, the volume and stereo-balance sliders,
    and **×** beside the name (undoable track deletion). Clip effects are in the inspector; all
-   clip/track effects are also in the **Effects** menu. Split first to process a segment.
+    click a clip or track header, then use **Effects → Add…** to append an effect
+    to that target. Split first to process a segment.
    Track controls update the playing mix without stopping or reopening the output.
 5. **Save** a `.audionest` project; **File → Export…** opens destination/Browse and
    format options for WAV (PCM16), MP3, AAC (ADTS), OGG (Vorbis), or FLAC.
@@ -74,7 +75,7 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   Below 1100 px window width, the inspector hides to give the timeline room.
   Timeline editing/effects remain available through the menus. At wider sizes, drag its left
   divider to resize it (200–520 px); that width is retained during the session.
-  **Clip Inspector** has compact global clip properties and individual effect
+   **Clip Inspector / Track Inspector** has compact global properties and individual effect
   editors, separated by edge-to-edge, high-contrast 5 px lines rather than boxes.
   Each effect's remove button sits beside its name.
 - The compact status bar shows playhead time to six decimal places plus the exact
@@ -85,7 +86,8 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   unchanged, **2** is twice the amplitude (+6 dB). A slider drag previews its value
   and commits on release/capture loss as one undo step. Volume and pan use **5%**
   increments; pan ranges from −1 to +1.
-  Existing saved gains above 2× are preserved and labeled; moving the volume
+  Track volume is independent of ordered Gain effects. Existing saved volume above
+  2× is preserved and labeled; moving the volume
   slider chooses a new value within 0–2×.
   Slider drags preview the live mix before committing on release.
 - Track pan is **stereo balance**: center leaves both channels unchanged; moving
@@ -109,6 +111,11 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   immediately, without an Apply button; invalid input shows an error and leaves
   the project unchanged. Length/source offset are read-only; trim in the timeline
   to change the source region.
+- Click a track header to switch to **Track Inspector**: name, mute, solo, volume,
+  pan, and effect sections apply to the entire track. It has no timeline-start or
+  lock control. Clicking empty timeline/header space clears focus and shows empty,
+  disabled clip properties. The last track may still be remembered as an import/
+  paste destination; that does not make it an effect target.
 - Clip mute/volume/pan are independent of track controls. Volume is 0–2× and pan
   is stereo balance from −1 to +1, both stepped by 5%. Sliders preview live audio
   and commit one undo step per drag. Mono tracks disable clip pan and ignore saved
@@ -117,12 +124,36 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   A selected group containing a locked clip stays anchored as a whole. Explicit
   split/delete and clipboard operations remain available; split/pasted clips retain
   their mute/lock/volume/pan. Unlock before repositioning a pasted locked clip.
-- Each clip effect has its own section, in processing order, with parameter controls,
+- Each clip/track effect has its own section, in processing order, with parameter controls,
   an Enabled/bypass checkbox, and a remove button. Use the **Effects** menu to
-  add/configure gain or a hard limiter; there are no add-effect or track controls in
-  the inspector. Global clip volume is applied before the effect chain and combines
+  **add** Gain, Compressor, Limiter, or Normalizer to the focused clip/track.
+  Each click appends an independent instance with defaults; with nothing focused,
+  these menu items are disabled and cannot edit anything. Global volume is applied
+  before the corresponding effect chain and combines
   with any existing gain effects. Parameter drags preview audio and commit one undo
   step. Removing/bypassing/editing a section affects only that effect instance.
+
+### Built-in effects
+
+- **Gain:** amplitude multiplier, initially 1×.
+- **Compressor:** stereo-linked peak compression, initially −18 dB threshold, 4:1
+  ratio, 10 ms attack, 100 ms release, 0 dB makeup. All five parameters are editable.
+- **Limiter:** stereo-linked sample-peak ceiling, initially −1 dBFS and 50 ms
+  release. Attenuation is instantaneous; release recovers smoothly. It has no
+  lookahead/latency and is not a true-peak/inter-sample limiter.
+- **Normalizer:** non-destructive sample-peak normalization, initially −1 dBFS.
+  It measures the full clip source region or overlapping track mix **at that point
+  in the effect chain**, including global volume and preceding effects. One fixed
+  gain is then used for playback/export, preserving relative dynamics; silence
+  stays silent. This is **not** automatic gain riding or RMS/LUFS normalization.
+  Later effects/pan can still change the resulting peak.
+- Existing projects' **Hard limiter** sections remain their original hard clippers.
+
+Normalization analysis happens during graph preparation, not in the audio callback.
+Unchanged audio inputs reuse cached peaks (including when renaming or changing only
+the target peak). Audio-affecting edits can require another scan; large/dense sessions
+may take noticeable preparation time. Progress/cancellation/background analysis UI
+is not yet implemented. No source audio is rewritten.
 
 - Edge trimming is non-destructive and source-bounded. Expanding reveals the
   original audio and waveform; it never repeats, stretches, or invents samples.
@@ -155,11 +186,11 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
 - Missing/changed-length media or unsupported project versions fail with an error,
   without replacing the current session. Autosave/recovery UI and garbage
   collection are not implemented. Back up valuable recordings.
-- New saves use project format **v3**, including clip mute/lock/volume/pan.
-  Existing v1/v2 projects upgrade in memory with unmuted/unlocked, unity-volume,
-  centered-pan clip defaults (and stereo defaults for v1 tracks). Their files are
-  not rewritten until Save. Older AudioNest versions reject v3 rather than silently
-  ignoring these editing/audio semantics.
+- New saves use project format **v4**, including independent track volume and
+  dynamics parameters. V1/v2/v3 projects upgrade in memory, preserving existing
+  ordered Gain/Hard limiter effects and adding unity track volume; older clip/layout
+  defaults remain neutral. Their files are not rewritten until Save. Older AudioNest
+  versions reject v4 rather than silently ignoring these audio semantics.
 
 ## Architecture
 
@@ -205,12 +236,14 @@ See [docs/TESTING.md](docs/TESTING.md) for hardware acceptance checks.
   the hardware adapter. Export uses default codec settings (no bitrate/quality UI).
   Individual decoded assets are limited to
   **10 minutes** and kept in RAM; this is not a large-session streaming engine.
-- Gain and a simple **hard limiter** are the only included effects. The final mix
-  is hard-clamped to prevent out-of-range output, not loudness-normalized.
+- Gain, compressor, limiter, and peak normalizer are included. The final mix is
+  still safety-clamped, not loudness-normalized. Unchanged dynamics retain envelopes
+  across live mix edits; newly edited/bypassed effects and seeks restart their
+  envelopes without pre-roll or parameter crossfades.
 - Capture uses the default microphone in mono with a live peak-envelope preview,
   but no monitoring, overdub playback, device-settings UI, or recording-time effects.
   The envelope retains at most ten minutes; longer takes still exceed the import cap.
-- Pitch/tempo/speed processing, advanced built-in effects, and VST hosting are
+- Pitch/tempo/speed processing, noise reduction/reverb/echo/distortion, and VST hosting are
   **not implemented**. Extension contracts are not claims of those capabilities.
 - Undo/redo retains 200 metadata edits and is not persisted across sessions.
 - Working media is intentionally retained; clean it manually only after saving

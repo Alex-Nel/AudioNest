@@ -37,6 +37,11 @@ public partial class MainWindow : Window
         SizeChanged += (_, _) => UpdateResponsiveLayout();
         InspectorSplitter.DragCompleted += (_, _) => _inspectorWidth = EditorBody.ColumnDefinitions[2].ActualWidth;
         MeterSplitter.DragCompleted += (_, _) => _meterWidth = ToolbarGrid.ColumnDefinitions[4].ActualWidth;
+        TrackHeadersPanel.AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (e.GetCurrentPoint(TrackHeadersPanel).Properties.IsLeftButtonPressed &&
+                _vm.TrackIndexAt(e.GetPosition(TrackHeadersPanel).Y) < 0) _vm.ClearSelection();
+        }, RoutingStrategies.Tunnel);
         TrackHeadersPanel.ContextRequested += (_, e) =>
         {
             TrackHeadersPanel.ContextMenu?.Close();
@@ -47,6 +52,7 @@ public partial class MainWindow : Window
             if (row >= 0)
             {
                 var track = _vm.Project.Tracks[row];
+                _vm.Select(track.Id, null);
                 var menu = new ContextMenu();
                 menu.Items.Add(new MenuItem { Header = "Rename track…", Command = new UiCommand(() => RunMenuAsync(() => RenameTrackAsync(track.Id))) });
                 menu.Items.Add(new MenuItem
@@ -60,7 +66,11 @@ public partial class MainWindow : Window
                 menu.Items.Add(new MenuItem { Header = "Delete track", Command = new UiCommand(() => _vm.DeleteTrack(track.Id)) });
                 TrackHeadersPanel.ContextMenu = menu;
             }
-            else TrackHeadersPanel.ContextMenu = TimelineContextMenus.TrackCreation(_vm);
+            else
+            {
+                _vm.ClearSelection();
+                TrackHeadersPanel.ContextMenu = TimelineContextMenus.TrackCreation(_vm);
+            }
             TrackHeadersPanel.ContextMenu.Open(TrackHeadersPanel);
         };
         TimelineArea.AddHandler(PointerWheelChangedEvent, OnTimelineWheel, RoutingStrategies.Tunnel);

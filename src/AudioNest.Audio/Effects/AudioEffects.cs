@@ -11,6 +11,11 @@ public interface IAudioProcessor
 {
     void Process(Span<float> interleavedSamples);
     void Reset();
+    // Built-ins produce silence from silence. Advance envelopes across sparse
+    // analysis gaps without visiting billions of empty timeline frames.
+    void AdvanceSilence(long frames) => Reset();
+    // Invoked only on the audio thread, after the old callback has completed.
+    void CopyStateFrom(IAudioProcessor previous) { }
 }
 
 /// <summary>Control-thread factory. Future DSP adapters are constructed outside callbacks.</summary>
@@ -25,6 +30,9 @@ public sealed class BuiltInEffectFactory : IAudioEffectFactory
     {
         EffectKind.Gain => new GainProcessor(description.Value),
         EffectKind.HardLimiter => new HardLimiterProcessor(description.Value),
+        EffectKind.Compressor => new CompressorProcessor(description, format),
+        EffectKind.Limiter => new LimiterProcessor(description, format),
+        EffectKind.Normalizer => new PeakNormalizerProcessor(description.Value),
         _ => throw new NotSupportedException($"Unsupported effect: {description.Kind}")
     };
 

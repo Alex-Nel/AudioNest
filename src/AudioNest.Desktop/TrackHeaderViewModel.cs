@@ -26,18 +26,18 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
     private AudioTrack Track => _owner.Project.Tracks.First(t => t.Id == Id);
     public string Name => Track.Name;
     public string ChannelText => Track.Layout == TrackChannelLayout.Mono ? "MONO" : "STEREO";
-    public bool IsSelected => _owner.SelectedTrackId == Id;
+    public bool IsSelected => _owner.FocusedTarget is not null && _owner.SelectedTrackId == Id;
     public bool IsMuted => Track.Muted;
     public bool IsSolo => Track.Solo;
     public bool CanEdit => _owner.CanEdit;
     public bool CanPan => CanEdit && Track.Layout == TrackChannelLayout.Stereo;
     public double Height => _owner.TrackHeight(Id);
     public void Resize(double height) => _owner.SetTrackHeight(Id, height);
-    public string GainText => $"{20 * Math.Log10(Math.Max(0.0001, Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1)):0.0} dB";
+    public string GainText => $"{20 * Math.Log10(Math.Max(0.0001, Track.Volume)):0.0} dB";
     public string PanText => Track.Pan == 0 ? "Center" : $"{(Track.Pan < 0 ? "L" : "R")} {Math.Abs(Track.Pan):P0}";
     public double Volume
     {
-        get => _previewVolume ?? Math.Clamp(Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1, 0, 2);
+        get => _previewVolume ?? Math.Clamp(Track.Volume, 0, 2);
         set
         {
             if (!_owner.CanEdit || !double.IsFinite(value)) return;
@@ -69,8 +69,8 @@ public sealed class TrackHeaderViewModel : INotifyPropertyChanged
             else _owner.SetTrackPan(Id, (float)value);
         }
     }
-    public string VolumeText => $"{_previewVolume ?? Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1:0.00}×";
-    public string VolumeHint => _previewVolume is null && (Track.Effects.FirstOrDefault(e => e.Kind == EffectKind.Gain)?.Value ?? 1) > 2
+    public string VolumeText => $"{_previewVolume ?? Track.Volume:0.00}×";
+    public string VolumeHint => _previewVolume is null && Track.Volume > 2
         ? "Saved gain exceeds 2×. Moving this slider sets a new volume within 0–2×."
         : "Volume: 0 is silence, 1 is original, 2 is twice the amplitude";
     public string BalanceText => Track.Layout == TrackChannelLayout.Mono ? "Mono" :

@@ -45,7 +45,7 @@ bounded 1024-frame blocks:
 
 ```text
 source region → clip volume → clip effect chain → clip stereo balance
-              → track sum → track effect chain
+              → track sum → track volume → track effect chain
               → stereo balance → master sum → safety clamp → device / audio exporter
 ```
 
@@ -59,10 +59,13 @@ state are preserved. Graphs are never concurrently mutated. Output-format change
 are rejected on the live path. Export creates a separate graph, so it never shares
 processor state with playback.
 
-Current effects are stateless gain/limiting. Swapping graphs recreates processors,
-without parameter smoothing or crossfades. Stateful DSP will need explicit state/
-tail migration, transition scheduling, and deferred disposal off the callback
-thread; do not mistake this handoff for a complete live plugin-update engine.
+At the callback boundary, `AdoptStateFrom` transfers compressor/limiter envelopes
+for unchanged immutable effect records on the same track/clip. Only the audio
+thread reads/copies that mutable state, after the old callback has completed.
+New, edited, bypassed/unbypassed effects start fresh. Pause/seek/stop quiesce the
+device before reset; discontinuous direct renders also reset. There are no
+parameter crossfades/pre-roll or native processors to dispose. General tail/state
+migration and deferred native retirement remain prerequisites for future plugins.
 
 The render callback performs no file access, UI calls, locks, LINQ, or managed
 allocation. It is a managed soft-real-time implementation, **not** a hard-real-time
@@ -105,22 +108,26 @@ Modal dialogs retain their normal keyboard behavior.
 `ClipInspectorViewModel` owns a permanent `ClipPropertiesViewModel` and an ordered
 observable collection of `ClipEffectEditorViewModel` sections. Global properties
 include immediate name/start text, clip mute/lock, and 5%-stepped clip volume/pan.
+The same view models/templates serve focused tracks (name/mute/solo/volume/pan,
+without timeline-start/lock fields). `EffectTarget` captures an ID plus clip/track
+scope, independently of the remembered import destination. Blank canvas/header
+space clears focus and leaves an empty Clip Inspector. Header clicks focus tracks.
 Invalid text remains local without changing persisted metadata. A text-edit's own
 notifications preserve the typed form/caret; unrelated property edits do not erase
 invalid input. Source-region metadata stays read-only. Effect sections are stable
 across ordinary notifications/parameter edits, preserving focused controls. Changes
 in selection or chain shape rebuild the relevant editor set. Commands capture the
-clip ID, chain index, and expected effect record; detached/stale editors cannot
+target ID/scope, chain index, and expected effect record; detached/stale editors cannot
 silently edit another instance after removal. The editor structure itself requires
 no new persisted effect IDs.
 
-Global volume is a dedicated 0–2× amplitude field applied before clip effects;
+Global clip/track volume uses dedicated amplitude fields before the respective chains;
 existing ordered gain effects remain independent and unchanged. Clip balance is
 applied after clip effects and before track summing. Muted clips are omitted from
 the prepared graph without shortening the timeline. Mono tracks ignore clip and
 track pan and recenter after track processing. `ClipMixSlider` previews a prepared
 graph without project mutation and commits one edit on release/capture loss.
-Selection changes discard transient clip mix and restore the persisted graph.
+Selection changes discard transient mix/effect previews and restore the persisted graph.
 
 Locking prevents individual/group movement, timeline-start edits, and edge trims
 in the pure edit operations as well as the pointer UI. Any locked group member
@@ -130,12 +137,15 @@ theme-aware high-contrast 5 px dividers with no enclosing boxes. Content padding
 belongs to the section bodies, not the scroll container, so separators stay full
 width as the inspector resizes/scrolls. Global fields are 26 px tall; checkboxes
 size automatically to the theme's indicator row (normally 32 px) to avoid clipping.
-Remove buttons sit immediately beside effect names. Action/effect-add/
-track buttons live outside the inspector.
+Remove buttons sit immediately beside effect names. The add-only Effects menu has
+one item per available effect and dispatches to the current focused target;
+no-focus commands are disabled and guarded in the view model.
 
-`ClipEffectEditorFactory` explicitly registers typed gain/limiter editors; typed
+`ClipEffectEditorFactory` explicitly registers typed gain/dynamics/normalizer editors; typed
 XAML templates provide their individual controls. The common base owns only section
-lifecycle (enabled/bypass/removal), not a fixed list of effect parameters.
+lifecycle (enabled/bypass/removal), target capture, and gesture-level effect snapshots.
+`EffectParameterViewModel` supplies descriptor-based controls for compressor's five
+parameters and limiter release, sharing one undoable commit per gesture.
 `SingleParameterEffectEditorViewModel` is an optional gesture/preview helper, not
 a restriction on future multi-parameter editors. To add an effect editor, register
 its model in the factory, add a typed template (or dedicated view), then implement
@@ -183,12 +193,34 @@ The caller transfers array ownership and must not subsequently mutate it.
 `IAudioProcessor` is an audio-thread-owned block processor, created outside the
 callback through `IAudioEffectFactory`. Implement `Process` without allocation,
 blocking, I/O, or UI; implement `Reset` for seek/stop. Inject the factory when
-preparing a render plan. Built-in gain and hard limiting are the reference examples.
+preparing a render plan. Built-in gain, legacy hard clipping, stereo-linked peak
+compression, and zero-lookahead peak limiting are the reference examples. Dynamics
+process by sample frame, preserve stereo balance, and do not depend on block size.
 
 For additional built-ins, extend the effect description, validation, source-generated
 serialization if needed, factory, tests, and inspector. Persistent descriptions must
-remain separate from runtime DSP. The current enum/value schema intentionally
-describes only two simple effects; richer parameters require deliberate versioning.
+remain separate from runtime DSP. V4 `EffectSpec` stores the primary value plus
+ratio/attack/release/makeup with explicit optional constructor defaults. Validation
+rejects non-finite/out-of-range parameters, including bypassed descriptions.
+
+`IPeakNormalizer` is configured during `RenderPlan` construction. Clip analysis
+reads its actual source region/volume and preceding processors; track analysis mixes
+non-muted clips, their effects/balance, global track volume, and the track prefix.
+It measures pre-safety-clamp sample peaks and sets a fixed double-precision gain.
+No full-session PCM copy or callback scan is used; silent sources remain silent.
+Merged occupied intervals avoid traversing distant empty timeline regions.
+`AdvanceSilence` analytically decays compressor/limiter release across these gaps.
+This assumes built-ins produce silence from silence; future tail-producing effects
+must extend analysis scheduling before using sparse skipping.
+
+Analysis results can be reused from the previous prepared plan, with exact input
+comparison (PCM reference, source bounds, relevant volume/pan/timing/layout, and
+preceding active descriptions). New PCM invalidates the cache, even with the same
+asset ID. Target-only/metadata changes reuse peaks. Processor instances/scratch are
+always new, never shared with the callback. Analysis still runs on the control
+thread; progress, cancellation, and background-job orchestration remain future work.
+`MainViewModel.Edit` prepares/validates before committing history, so failed
+normalization does not publish a project that differs from the playing graph.
 
 Before adding delay/reverb, buffering pitch/tempo processors, or plugins, add:
 
@@ -246,12 +278,13 @@ an effect into the only surviving source.
 
 ## Persistence and AOT
 
-Version 3 is source-generated JSON plus a sibling media directory. V1/V2 upgrade
-in memory with neutral clip defaults; V1 also receives stereo layout defaults.
-An optional JSON constructor parameter explicitly defaults missing clip volume to
+Version 4 is source-generated JSON plus a sibling media directory. V1/V2/V3 upgrade
+in memory with neutral track volume/dynamics defaults and preserved legacy effect
+order; older clip/layout defaults remain neutral.
+Optional JSON constructor parameters explicitly default missing clip/track volume to
 unity (source-generated init-only assignment would otherwise use zero).
 The original file is unchanged until Save. The version bump prevents older readers
-from ignoring clip mute/lock/mix semantics.
+from ignoring new dynamics/track-volume semantics.
 Save copies
 SHA-256-addressed media first and replaces a temporary metadata file last. Export
 uses the same temporary-file publication pattern. These protect the old file on

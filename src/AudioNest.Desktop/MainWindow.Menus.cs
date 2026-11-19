@@ -80,15 +80,8 @@ public partial class MainWindow
         Item(edit, "Delete selected track", _vm.DeleteSelectedTrack, Track);
 
         var effects = Section("Effects");
-        Item(effects, "Clip gain −3 dB", () => _vm.ApplyGain(-3, false), Clip);
-        Item(effects, "Clip gain +3 dB", () => _vm.ApplyGain(3, false), Clip);
-        Item(effects, "Clip hard limiter", () => _vm.ToggleLimiter(false), Clip,
-            check: () => _vm.SelectedClip?.Effects.Any(e => e.Kind == Domain.EffectKind.HardLimiter) ?? false);
-        Separate(effects);
-        Item(effects, "Track gain −3 dB", () => _vm.ApplyGain(-3, true), Track);
-        Item(effects, "Track gain +3 dB", () => _vm.ApplyGain(3, true), Track);
-        Item(effects, "Track hard limiter", () => _vm.ToggleLimiter(true), Track,
-            check: () => _vm.SelectedTrack?.Effects.Any(e => e.Kind == Domain.EffectKind.HardLimiter) ?? false);
+        foreach (var kind in Domain.BuiltInEffects.Available)
+            Item(effects, $"Add {Domain.BuiltInEffects.Name(kind)}", () => _vm.AddEffect(kind), () => _vm.HasEffectTarget);
 
         var tools = Section("Tools");
         Item(tools, "Selection tool", () => _vm.SetTool(TimelineTool.Selection), Editable, "V", () => _vm.IsSelectionTool);
@@ -106,7 +99,7 @@ public partial class MainWindow
             "Space — Play / pause\nHome / End — Go to start / end\nV / C — Selection / Razor tool\nS — Split selected clip at playhead\nDelete — Delete selected clip\nCtrl/Cmd+C / X / V — Copy / Cut / Paste clip\nCtrl/Cmd+Z — Undo\nCtrl/Cmd+Shift+Z or Ctrl/Cmd+Y — Redo\nCtrl/Cmd+N / O / S — New / Open / Save\nCtrl/Cmd+Shift+S — Save as\nCtrl/Cmd+I — Import audio\n\nLeft Alt + wheel — Zoom under mouse pointer\nToolbar magnifiers — Zoom around playhead\nLeft Shift + ruler drag — Snap to clip boundaries\nSelection tool: drag clip edges to trim, middle to move.\nRight-click clips/tracks for contextual editing.\nRight-click empty track-header space to add tracks.\nDrag the inspector or meter divider to resize it."));
         Separate(help);
         AsyncItem(help, "About AudioNest", () => ShowInformationAsync("About AudioNest",
-            "AudioNest\nNon-destructive multitrack recording and editing.\n\nBuilt with .NET, Avalonia, and SoundFlow / MiniAudio.\nGain and hard limiting are included.\nAdvanced DSP and VST hosting are not yet implemented."));
+            "AudioNest\nNon-destructive multitrack recording and editing.\n\nBuilt with .NET, Avalonia, and SoundFlow / MiniAudio.\nGain, compressor, limiter, and peak normalizer are included.\nVST hosting is not yet implemented."));
 
         if (OperatingSystem.IsMacOS()) NativeMenu.SetMenu(this, native);
         RefreshMenus();

@@ -577,3 +577,79 @@ Further implementation and verification entries are appended below.
 - This correction changes no audio, persistence, or dialog behavior. Native AOT
   publishing and physical display-scaling checks were not repeated for this fix.
 - Existing staged changes were preserved; no commits or pushes were created.
+
+## 2026-11-19 — Focused track inspector and built-in dynamics
+
+- Read the three updated TODO points from a clean working tree.
+- Separate inspector focus from the remembered import/paste destination. Empty
+  canvas clears focus; clips show Clip Inspector and headers show Track Inspector.
+- Use one add-only Effects menu for the focused target, with disabled/no-op commands
+  when nothing is focused. Extend the typed editors to captured clip/track targets.
+- Add stereo-linked compressor and release limiter plus analyzed peak normalization,
+  retaining the legacy hard clipper for existing projects. Prepare normalizer gain
+  outside the callback from its actual preceding effect chain; analyze occupied
+  track ranges and advance dynamics across silent gaps.
+- Add independent track volume and versioned effect parameters in project v4;
+  older projects retain unity track volume and their existing ordered gain effects.
+- Preserve unchanged dynamics state at audio-thread graph handoff, and explicitly
+  reset new/edited/bypassed processors and on seek/stop.
+- Added explicit `EffectTarget` scope to inspector/editor command capture. Header
+  clicks show track globals (name/mute/solo/volume/pan); clip clicks retain existing
+  clip globals; blank canvas/header space clears focus and shows empty disabled clip
+  properties. The remembered paste/import track is not an effect target. Track
+  global changes synchronize with header controls without rewriting effect chains.
+- Replaced duplicate clip/track gain/limiter commands with Add Gain, Add Compressor,
+  Add Limiter, and Add Normalizer. Each appends an independent default instance;
+  guarded commands are disabled/no-op without a focused target.
+- Compressor provides threshold, ratio, attack, release, and makeup editors, using
+  stereo-linked peak detection and per-frame smoothed gain reduction. Limiter adds
+  instantaneous linked ceiling attenuation and exponential release, with no
+  lookahead/latency. Existing Hard limiter records keep their legacy clipping DSP.
+- Normalizer measures the exact pre-effect input: source region/volume and preceding
+  processors for clips, overlapping non-muted clips plus their processing/balance,
+  track volume, and track prefix for tracks. It uses one fixed double-precision
+  gain; silence remains silent. This is sample-peak normalization, not LUFS/AGC.
+  Analysis uses bounded scratch blocks, no full-session PCM copy, and merged
+  occupied ranges with analytical release decay across gaps.
+- Added exact-input peak reuse from the previous prepared plan. Name/target-only
+  edits reuse analysis; source bounds, PCM identity, timing/layout, mix, or preceding
+  effects invalidate it. All analysis remains outside callbacks. Dense/long inputs
+  can still take noticeable control-thread preparation time; background progress/
+  cancellation is documented future work.
+- Effect editors now share captured clip/track scope, preview snapshots, parameter
+  descriptors, typed templates, stable controls, bypass/removal, and one undo step
+  per drag. Selection/chain changes cancel previews; stale editors cannot mutate
+  another target or effect at a former index.
+- Audio-thread graph adoption copies only unchanged processors' envelopes after
+  the previous callback completes. It performs no allocations/locks or control-
+  thread DSP-state reads. New/edited/bypassed effects restart envelopes; seeks
+  reset and have no pre-roll/crossfades. All current effects have no output tail.
+- Edits now validate/prepare graphs before publishing history. Normalization failure
+  (for example, non-finite audio from an excessive preceding gain chain) leaves the
+  current project, history, and playing graph intact.
+- Project v4 adds independent track volume and ratio/attack/release/makeup fields
+  with explicit JSON defaults. V1/V2/V3 load without rewriting their files and
+  preserve existing Gain/Hard limiter chains and audio behavior. No dependencies
+  were added; four-layer boundaries and AOT-safe explicit registration remain.
+- Updated README, architecture/extension notes, roadmap, manual acceptance, and
+  About text. Added 25 test cases for focused menu routing, track globals/headers,
+  independent parameters and actual slider gestures, stale previews, persistence/
+  migration, compressor transfer curves/stereo linking, limiter ceiling/recovery,
+  block independence/reset, callback allocation/state handoff, normalization order/
+  overlap/sparse gaps/silence/quiet PCM/cache invalidation, playback/WAV parity,
+  malformed parameters, and atomic failed preparation.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **113 passed, 0 failed,
+  0 skipped**, without build warnings/errors.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git diff --check`: passed.
+- Windows x64 Native AOT publish succeeded without warnings. Native main-window
+  startup/normal-close smoke check exited with code 0 and left no test process.
+- Inspected populated light/dark Track Inspector/dynamics captures under ignored
+  test `ui-artifacts/`. Normalizer details can be reached by vertical scrolling.
+- No physical playback/capture was started. Listening tests, larger-session timing,
+  hardware buffer-size acceptance, non-Windows/native menus, and OS scaling remain
+  manual. Sample-peak processors do not guarantee inter-sample true-peak ceilings.
+- `TODO.txt` was not changed. No commits or pushes were created.

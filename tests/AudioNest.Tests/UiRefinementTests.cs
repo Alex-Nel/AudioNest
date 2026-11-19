@@ -102,13 +102,13 @@ public sealed class UiRefinementTests
         track.Volume = 2;
         Assert.Empty(vm.Project.Tracks[0].Effects);
         track.EndAdjustment();
-        Assert.Equal(2, vm.Project.Tracks[0].Effects.Single().Value);
+        Assert.Equal(2, vm.Project.Tracks[0].Volume);
         vm.Undo();
         Assert.Empty(vm.Project.Tracks[0].Effects);
         vm.Redo();
         Assert.Equal(2, track.Volume);
         track.Volume = 0;
-        Assert.Equal(0, vm.Project.Tracks[0].Effects.Single().Value);
+        Assert.Equal(0, vm.Project.Tracks[0].Volume);
         track.Pan = -1;
         Assert.Equal(-1, vm.Project.Tracks[0].Pan);
         track.Pan = 1;
@@ -126,9 +126,9 @@ public sealed class UiRefinementTests
         window.MouseMove(point + new Vector(-10, 0));
         window.MouseUp(point + new Vector(-10, 0), MouseButton.Left);
         Layout();
-        Assert.True(vm.Project.Tracks[0].Effects.Single().Value > 0);
+        Assert.True(vm.Project.Tracks[0].Volume > 0);
         vm.Undo();
-        Assert.Equal(0, vm.Project.Tracks[0].Effects.Single().Value);
+        Assert.Equal(0, vm.Project.Tracks[0].Volume);
         IPointer? captured = null;
         slider.AddHandler(InputElement.PointerPressedEvent, (_, e) => captured = e.Pointer,
             Avalonia.Interactivity.RoutingStrategies.Tunnel, true);
@@ -137,11 +137,11 @@ public sealed class UiRefinementTests
         Assert.NotNull(captured);
         captured.Capture(null);
         Layout();
-        Assert.Equal(1.25f, vm.Project.Tracks[0].Effects.Single().Value);
+        Assert.Equal(1.25f, vm.Project.Tracks[0].Volume);
         window.MouseUp(point, MouseButton.Left);
         Layout();
         vm.Undo();
-        Assert.Equal(0, vm.Project.Tracks[0].Effects.Single().Value);
+        Assert.Equal(0, vm.Project.Tracks[0].Volume);
         CloseClean(window, vm);
     }
 

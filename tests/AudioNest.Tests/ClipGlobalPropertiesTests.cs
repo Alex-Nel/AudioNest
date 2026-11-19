@@ -140,7 +140,7 @@ public sealed class ClipGlobalPropertiesTests
         await File.WriteAllTextAsync(path, original);
         var loaded = await store.LoadAsync(path);
         var clip = loaded.Tracks[0].Clips[0];
-        Assert.Equal(3, loaded.Version);
+        Assert.Equal(AudioProject.CurrentVersion, loaded.Version);
         Assert.False(clip.Muted); Assert.False(clip.Locked);
         Assert.Equal(1, clip.Volume); Assert.Equal(0, clip.Pan);
         Assert.Equal(original, await File.ReadAllTextAsync(path));
