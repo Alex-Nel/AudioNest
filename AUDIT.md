@@ -779,3 +779,55 @@ Further implementation and verification entries are appended below.
 - Native gesture checks on physical keyboards, OS scaling, and non-Windows remain
   manual; automated pointer/key interaction coverage uses the headless desktop.
 - `TODO.txt` was not changed. No commits or pushes were created.
+
+## 2026-11-20 — Integrated track resize border and editable project sample rate
+
+- Read the two updated TODO items from a clean working tree.
+- Replaced the inset scrollbar-like track resize strip with a full-width bottom
+  border: a two-pixel visible line, six-pixel hit area, vertical-resize cursor,
+  and accent hover/pressed feedback. Kept track/header/canvas height alignment and
+  session-local resizing without metadata edits.
+- Added Edit → Project sample rate… to both menu implementations. The small owned
+  dialog has an editable field and explicit preset dropdown, including 44.1/48/
+  96 kHz. Accepts arbitrary whole-Hz rates in the existing 8,000–192,000 Hz range,
+  with optional Hz/kHz/k suffixes; invalid/same-rate input disables Apply.
+- Added pure Int128 clock conversion for asset frame counts, clip starts/source
+  offsets/lengths, and cursor time. Retains at least one frame, respects decoded
+  source bounds, preserves clip/track identities/properties/effects, and rejects
+  timeline overflow or materially changed source lengths before publication.
+- Changing rate pauses playback, stages original-media decoding and graph/
+  normalization preparation outside callbacks, then commits one undoable edit.
+  Source files are not rewritten. Decode, format, length, or analysis failure
+  leaves the original project/cache/history/cursor playable and intact.
+- Made the PCM cache format-aware, retaining rate variants for undo/redo without
+  decoding in history navigation. Cursor seconds are rescaled on rate transitions;
+  the output device is reopened at the selected rate on subsequent playback.
+  Imports, recording, and exports use the chosen project rate.
+- Busy/recording guards prevent simultaneous conversion/edits/recording. Cancel
+  does nothing; matching-rate Apply is a no-op. The clipboard retains its copied
+  rate and requires a matching project clock. Trying many rates increases retained
+  RAM until New/Open; streaming/eviction/progress/cancellation remain future work.
+- The existing v6 schema already stores project rate, so no migration or new
+  dependency was needed. Updated README, architecture, roadmap, and manual tests.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **245 passed, 0 failed,
+  0 skipped**, without warnings/errors.
+- Added 32 cases covering preset/custom parsing and invalid input; time/source/
+  effect preservation; tiny clips, missing/changed media, overflow; exact undo/
+  redo buffer/history restoration; cursor seconds; rate-specific clipboard;
+  playback/recording formats and busy guards; failed decode/format/length/analysis;
+  empty projects; real-codec tone/pitch/duration/source-byte preservation and
+  save/reopen/WAV rate headers; menu/dialog Cancel/Apply/dropdown behavior; and
+  full-width border geometry, resizing, and both themes.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git -c core.autocrlf=false diff --check`: passed.
+- Inspected dark preset dropdown, light custom-rate dialog, and dark track-border
+  captures under ignored test `ui-artifacts/`.
+- Windows x64 Native AOT publish succeeded without warnings. The published
+  executable opened a main window and exited normally with code 0.
+- No physical playback/capture was started. Device support for custom rates,
+  listening/resampling-quality acceptance, non-Windows/native menu interaction,
+  and OS scaling remain manual. Resampling uses the existing codec/adapter path.
+- `TODO.txt` was not changed. No commits or pushes were created.

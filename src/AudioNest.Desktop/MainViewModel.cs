@@ -38,6 +38,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private bool _trackFocused;
     private RenderPlan? _preparedPlan;
     private RenderPlan? _pendingEditPlan;
+    private int _clockRate = 48000;
 
     public MainViewModel(ProjectSession session, AudioLibrary library, AudioTransport transport,
         IAudioBackend backend, IProjectStore store, string? workspace = null)
@@ -181,10 +182,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (name.Length is < 1 or > 120) { ReportError(new ArgumentException("Track name must contain 1–120 characters.")); return; }
         Edit("Rename track", p => ProjectEdits.UpdateTrack(p, id, t => t with { Name = name }), keepPlaying: true);
     }
-    public AudioBuffer Buffer(Guid asset) => _library[asset];
+    public AudioBuffer Buffer(Guid asset) => _library[asset, Format];
     private RenderPlan PreparePlan(AudioProject project)
     {
-        var next = new RenderPlan(project, id => _library[id], previous: _preparedPlan);
+        var next = new RenderPlan(project, id => _library[id, new PcmFormat(project.SampleRate, 2)], previous: _preparedPlan);
         _preparedPlan = next;
         return next;
     }
@@ -203,6 +204,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void OnProjectChanged()
     {
+        var rateChanged = _clockRate != Project.SampleRate;
+        var cursor = rateChanged ? ProjectSampleRate.Cursor(Position, _clockRate, Project.SampleRate) : Position;
         if (SelectedTrack is null) { _trackFocused = false; SelectedTrackId = Project.Tracks.FirstOrDefault()?.Id; }
         var valid = Project.Tracks.SelectMany(t => t.Clips).Select(c => c.Id).ToHashSet();
         _selected.RemoveWhere(id => !valid.Contains(id));
@@ -212,6 +215,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         var plan = _pendingEditPlan ?? PreparePlan(Project);
         if (_keepPlayingEdit) _transport.UpdatePlan(plan);
         else _transport.SetPlan(plan);
+        if (rateChanged)
+        {
+            _transport.Seek(cursor);
+            _outputPeak = _inputPeak = 0;
+            _clockRate = Project.SampleRate;
+        }
         Notify();
     }
 
@@ -339,7 +348,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (!HasSelectedClip) return;
         _clipboard = ClipClipboardGroup.Capture(Project, _selected);
         _clipboardBuffers.Clear();
-        foreach (var item in _clipboard.Clips) _clipboardBuffers[item.Item.Asset.Id] = _library[item.Item.Asset.Id];
+        foreach (var item in _clipboard.Clips) _clipboardBuffers[item.Item.Asset.Id] = _library[item.Item.Asset.Id, Format];
         _status = $"{_clipboard.Clips.Length} clip(s) copied.";
         Notify();
     }
@@ -549,6 +558,34 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void Undo() { if (CanUndo) { _transport.Pause(); _session.Undo(); } }
     public void Redo() { if (CanRedo) { _transport.Pause(); _session.Redo(); } }
+    public async Task ChangeSampleRateAsync(int rate)
+    {
+        if (!CanEdit || rate == Project.SampleRate) return;
+        await RunAsync(async () =>
+        {
+            ProjectSampleRate.Validate(rate);
+            _transport.Pause();
+            _outputPeak = 0;
+            var format = new PcmFormat(rate, 2);
+            var staged = new Dictionary<Guid, AudioBuffer>();
+            foreach (var asset in Project.Assets)
+            {
+                var buffer = _library.TryGet(asset.Id, format, out var cached) ? cached! :
+                    await Task.Run(() => new AudioBuffer(_backend.Decode(asset.Path, format)));
+                if (buffer.Format != format) throw new InvalidDataException("Decoded audio does not match the requested sample rate.");
+                staged.Add(asset.Id, buffer);
+            }
+            var next = ProjectSampleRate.Change(Project, rate, staged.ToDictionary(p => p.Key, p => p.Value.FrameCount));
+            // Stage decoding, validation, and normalization before publishing either
+            // metadata or cache variants. Failure leaves the old session playable.
+            var plan = await Task.Run(() => new RenderPlan(next, id => staged[id]));
+            foreach (var (id, buffer) in staged) _library.Add(id, buffer);
+            _pendingEditPlan = _preparedPlan = plan;
+            try { _session.Apply("Change project sample rate", _ => next); }
+            finally { _pendingEditPlan = null; }
+            _status = $"Project sample rate changed to {rate:N0} Hz. Playback is paused.";
+        });
+    }
     public void Play()
     {
         if (!CanEdit) return;
@@ -678,7 +715,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (!CanEdit) return;
         await RunAsync(async () =>
         {
-            var plan = new RenderPlan(Project, id => _library[id], previous: _preparedPlan);
+            var plan = new RenderPlan(Project, id => _library[id, Format], previous: _preparedPlan);
             await Task.Run(() => AudioExporter.Export(plan, path, fileFormat, _backend));
             _status = $"{AudioFileType.For(fileFormat).Name} exported.";
         });

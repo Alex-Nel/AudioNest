@@ -100,7 +100,7 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   and used identically in playback and every export format. Mono tracks cannot pan.
 - Right-click an existing track header to **Rename track…** (undoable and saved).
   The same menu offers **Delete track**; the × button does the same operation.
-  Drag the thin grip at the bottom of a header to resize that row between
+   Drag the header's full-width bottom border to resize that row between
   **164 and 600 px**. Track heights are session-local and do not dirty the project.
 - Two toolbar meters show actual timeline output (speaker) and microphone
   input (microphone), with dBFS readouts and peak decay. Input is metered **only
@@ -206,7 +206,7 @@ is not yet implemented. No source audio is rewritten.
   within the same app session. PCM is shared, not duplicated. Paste creates fresh
   clip identities and any missing destination tracks in one undoable edit.
   This is not an OS audio clipboard; cross-project paste requires matching project
-  sample rates (new projects all use 48 kHz).
+   sample rates (new projects default to 48 kHz; use Edit → Project sample rate to change it).
 - Stereo tracks retain both channels. Mono tracks non-destructively average L/R
   before clip effects and feed that mono signal to the stereo output, with the
   track's normal gain. Mono is recentered after track effects and ignores saved pan.
@@ -216,6 +216,19 @@ is not yet implemented. No source audio is rewritten.
 ### Files and safety
 
 - Edits change clip metadata; source audio is never rewritten.
+- **Edit → Project sample rate…** opens an editable dropdown with popular rates
+  such as 44.1/48/96 kHz. Type a custom whole-number rate from **8,000–192,000 Hz**
+  (for example `12345`, `44100 Hz`, or `44.1 kHz`).
+  Changing it pauses playback, decodes original media at the new rate, and
+  preserves clip timing/source regions and cursor time to the nearest sample;
+  this is not a speed/pitch effect. Very short clips retain at least one frame.
+  The change is one undoable edit; undo/redo restores matching audio buffers.
+  Decode/validation/analysis failures leave the current project unchanged.
+  Recording and other project edits are disabled during conversion. New playback,
+  recording, imports, and exports use the chosen rate.
+  Original files are untouched; converted in-memory buffers are retained for
+  undo until New/Open, so trying many rates can increase RAM use. Clipboard audio
+  stays in its copied rate: paste requires a matching project rate, or copy again.
 - Imports and takes are retained in the app-local `AudioNest/Media` working folder
   (`%LOCALAPPDATA%\AudioNest\Media` on Windows).
 - A save creates **both** `Session.audionest` and `Session.audionest.media/`.
@@ -272,7 +285,8 @@ See [docs/TESTING.md](docs/TESTING.md) for hardware acceptance checks.
 
 ## Current limits
 
-- New projects are 48 kHz stereo; imported rates/channels are normalized by
+- New projects default to 48 kHz stereo; the project rate is editable from 8–192 kHz.
+  Imported rates/channels are normalized by
   the hardware adapter. Export uses default codec settings (no bitrate/quality UI).
   Individual decoded assets are limited to
   **10 minutes** and kept in RAM; this is not a large-session streaming engine.

@@ -19,11 +19,14 @@
     <Style Selector="Border.trackSurface.selected">
       <Setter Property="Background" Value="{DynamicResource EditorSelected}" />
     </Style>
+    <Style Selector="Thumb.trackResize:pointerover, Thumb.trackResize:pressed">
+      <Setter Property="Background" Value="{DynamicResource EditorAccent}" />
+    </Style>
   </UserControl.Styles>
   <Border Classes="trackSurface" Classes.selected="{Binding IsSelected}"
-          BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,0,1,1" Padding="10,8">
+          BorderBrush="{DynamicResource EditorBorder}" BorderThickness="0,0,1,0">
     <Grid RowDefinitions="*,6">
-    <Grid RowDefinitions="28,28,40,40">
+    <Grid RowDefinitions="28,28,40,40" Margin="10,8,10,0">
       <Grid ColumnDefinitions="Auto,*">
         <Button Content="×" Classes="track" Command="{Binding Delete}" Margin="0,0,7,0"
                 a:AutomationProperties.Name="Delete track" ToolTip.Tip="Delete track" />
@@ -54,10 +57,14 @@
         <TextBlock Grid.Column="2" Text="{Binding BalanceText}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" />
       </Grid>
     </Grid>
-    <Thumb x:Name="TrackResizeGrip" Grid.Row="1" Cursor="SizeNorthSouth" Background="{DynamicResource EditorBorder}"
+    <Thumb x:Name="TrackResizeGrip" Classes="trackResize" Grid.Row="1" Cursor="SizeNorthSouth" Background="{DynamicResource InspectorDivider}"
            a:AutomationProperties.Name="Resize track height" ToolTip.Tip="Drag to resize this track">
       <Thumb.Template>
-        <ControlTemplate><Border Background="{TemplateBinding Background}" /></ControlTemplate>
+        <ControlTemplate>
+          <Border Background="Transparent">
+            <Border Height="2" VerticalAlignment="Bottom" Background="{TemplateBinding Background}" />
+          </Border>
+        </ControlTemplate>
       </Thumb.Template>
     </Thumb>
     </Grid>

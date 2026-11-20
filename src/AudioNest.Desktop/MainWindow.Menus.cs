@@ -78,6 +78,8 @@ public partial class MainWindow
         Item(edit, "Add stereo track", _vm.AddTrack, Editable);
         Item(edit, "Add mono track", _vm.AddMonoTrack, Editable);
         Item(edit, "Delete selected track", _vm.DeleteSelectedTrack, Track);
+        Separate(edit);
+        AsyncItem(edit, "Project sample rate…", ChangeSampleRateAsync, Editable);
 
         var effects = Section("Effects");
         foreach (var kind in Domain.BuiltInEffects.Available)
@@ -141,5 +143,11 @@ public partial class MainWindow
         };
         DockPanel.SetDock(close, Dock.Bottom);
         await dialog.ShowDialog(this);
+    }
+    private async Task ChangeSampleRateAsync()
+    {
+        if (!_vm.CanEdit) return;
+        var dialog = new SampleRateWindow(_vm.Project.SampleRate);
+        if (await dialog.ShowDialog<int?>(this) is { } rate) await _vm.ChangeSampleRateAsync(rate);
     }
 }

@@ -40,12 +40,18 @@ internal sealed class FakeBackend : IAudioBackend
     public int OutputOpens { get; private set; }
     public int RecordingStops { get; private set; }
     public int DecodedFrames { get; set; } = 10;
+    public int DecodeCalls { get; private set; }
+    public Func<string, PcmFormat, DecodedAudio>? DecodeAudio { get; set; }
+    public PcmFormat? OutputFormat { get; private set; }
+    public PcmFormat? RecordingFormat { get; private set; }
     public FakeRecording? Recording { get; private set; }
     public IReadOnlyList<AudioDevice> GetOutputDevices() => [new("0", "Test output", true)];
     public IReadOnlyList<AudioDevice> GetInputDevices() => [new("0", "Test input", true)];
     public DecodedAudio Decode(string path, PcmFormat targetFormat, CancellationToken cancellationToken = default)
     {
+        DecodeCalls++;
         if (FailDecode) throw new InvalidDataException("Test decode failure.");
+        if (DecodeAudio is not null) return DecodeAudio(path, targetFormat);
         return new DecodedAudio(targetFormat, Enumerable.Range(0, DecodedFrames * targetFormat.Channels)
             .Select(i => 0.5f * MathF.Sin(i / (float)targetFormat.Channels * 0.04f)).ToArray());
     }
@@ -53,10 +59,12 @@ internal sealed class FakeBackend : IAudioBackend
     {
         if (FailOutput) throw new InvalidOperationException("Test device unavailable.");
         OutputOpens++;
+        OutputFormat = format;
         return Output = new FakeOutput(render);
     }
     public IAudioRecording StartRecording(PcmFormat format, string path, string? deviceId = null)
     {
+        RecordingFormat = format;
         File.WriteAllText(path, "fake recording decoded by fake backend");
         return Recording = new FakeRecording(() => RecordingStops++, format);
     }

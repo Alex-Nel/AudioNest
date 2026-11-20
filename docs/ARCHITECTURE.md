@@ -196,6 +196,32 @@ anti-phase cancellation is reflected in the waveform as well as playback/export.
 
 `AudioBuffer` owns interleaved normalized float PCM and a 256-frame min/max cache.
 The caller transfers array ownership and must not subsequently mutate it.
+`AudioLibrary` keys buffers by asset ID **and PCM format**, so project history
+can reference different rates without re-decoding inside undo/redo or callbacks.
+New/Open clears those variants; the immutable session clipboard retains its own
+buffer references. Trying many rates increases retained RAM; streaming/cache
+eviction and conversion progress/cancellation remain future work.
+
+`ProjectSampleRate` performs pure clock conversion using Int128 rational arithmetic,
+rounding frame boundaries to the nearest target sample. Asset lengths come from
+fresh decoding of original media, with a small resampler-rounding tolerance;
+source offsets/lengths are bounded to the decoded asset, with at least one frame.
+Global clock conversion also applies to locked clips, preserving their times
+rather than their old frame numbers. Effects, identities, mix and track properties
+are unchanged. Extremely distant clips that would overflow the new clock fail
+before publication; cursor conversion instead saturates at the timeline limit.
+
+The Edit-menu dialog uses an editable AutoCompleteBox plus an explicit dropdown
+button for common rates. Custom whole-Hz values in the existing 8–192 kHz domain
+range are accepted, with optional Hz/kHz suffixes. Apply stages decode, metadata
+validation, and render/normalization preparation on background tasks before
+publishing one history entry and cache variants. Playback pauses; recording and
+other edits are disabled while busy. Failures leave old metadata/PCM/history
+intact. A sample-rate change (including undo/redo) sets a new transport graph and
+rescales cursor time; live same-format handoff is deliberately not used.
+The existing project format already stores its rate, so no schema migration is
+needed. Save retains original media and records new decoded frame counts; Open
+decodes those originals at the saved project rate.
 
 ## Adding effects
 

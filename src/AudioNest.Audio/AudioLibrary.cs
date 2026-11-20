@@ -69,17 +69,18 @@ public sealed class AudioBuffer
 /// <summary>Control-thread-owned cache. Prepare a render plan before entering the audio callback.</summary>
 public sealed class AudioLibrary(IAudioBackend backend)
 {
-    private readonly Dictionary<Guid, AudioBuffer> _buffers = [];
-    public AudioBuffer this[Guid assetId] => _buffers.TryGetValue(assetId, out var buffer)
+    private readonly Dictionary<(Guid Id, PcmFormat Format), AudioBuffer> _buffers = [];
+    public AudioBuffer this[Guid assetId, PcmFormat format] => _buffers.TryGetValue((assetId, format), out var buffer)
         ? buffer : throw new InvalidOperationException("Audio asset has not been loaded.");
+    public bool TryGet(Guid assetId, PcmFormat format, out AudioBuffer? buffer) => _buffers.TryGetValue((assetId, format), out buffer);
 
     public AudioBuffer Load(Guid assetId, string path, PcmFormat format, CancellationToken cancellationToken = default)
     {
         var buffer = new AudioBuffer(backend.Decode(path, format, cancellationToken));
-        _buffers[assetId] = buffer;
+        Add(assetId, buffer);
         return buffer;
     }
 
     public void Clear() => _buffers.Clear();
-    public void Add(Guid assetId, AudioBuffer buffer) => _buffers[assetId] = buffer;
+    public void Add(Guid assetId, AudioBuffer buffer) => _buffers[(assetId, buffer.Format)] = buffer;
 }

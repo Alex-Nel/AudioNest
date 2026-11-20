@@ -65,8 +65,24 @@ Use disposable test material first:
   Shift-click it without dragging to remove it, and click again to add it.
 - Rename through an existing header's context menu, undo/redo, save/reopen.
   Delete a different, right-clicked track through the same menu and undo it.
-  Drag its bottom grip to the 164/600 px limits; verify all later headers, clips,
+  Drag its full-width bottom border to the 164/600 px limits; verify all later headers, clips,
   hit targets, and live recording drafts remain aligned when scrolled.
+  The handle must look like the row boundary, not an inset horizontal scrollbar;
+  check the vertical-resize cursor and hover/drag highlight in both themes.
+- Open Edit → Project sample rate. Test the dropdown's 44.1/48/96 kHz presets,
+  custom whole-Hz input (`12345`), Hz/kHz suffixes, invalid/out-of-range values,
+  same-rate disabled Apply, and Cancel/Escape without changes.
+- Convert populated projects with trims, splits, overlaps, locked/muted clips,
+  mono/stereo tracks, effects and normalizers. Clip/source/cursor times and pitch
+  must remain stable to sample rounding, with valid one-frame tiny clips.
+  Conversion must pause playback and disable project edits/recording until complete.
+  Compare new playback/recording/output WAV headers with the chosen rate.
+  Undo/redo across conversions and later edits/imports; no missing/mismatched PCM.
+  Save/reopen at the new rate and verify source files remain untouched.
+- Test missing/changed media and failed decode/analysis during rate conversion:
+  the old session must remain playable, with unchanged metadata and undo history.
+  Check rate-specific clipboard behavior (paste only at its copied rate), busy menu
+  state, physical audio devices' supported rates, OS scaling and native menus.
 - Right-click blank track space with/without clipboard content and verify only
   relevant paste/mute actions. Right-click blank header space to add stereo/mono
   tracks; it must not reuse that creation menu on existing track headers.

@@ -15,6 +15,7 @@
 | Effects automatically applied while recording | Not implemented; raw capture preserved |
 | Save/open projects | Versioned JSON and portable sibling media folder |
 | Multiple formats/rates | WAV/MP3/FLAC through MiniAudio; AAC/M4A/OGG through FFmpeg; normalized to project rate |
+| Editable project sample rate | Edit-menu typed/preset 8–192 kHz conversion from original media; time-preserving, undoable |
 | Multiple output codecs | Export options for WAV PCM16, MP3, AAC/ADTS, OGG/Vorbis, FLAC |
 | Avalonia / C# / four layers | Implemented |
 | Decoupled playhead | Device-frame clock; live graph handoff keeps track controls from stopping playback |
