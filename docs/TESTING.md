@@ -106,7 +106,8 @@ Use disposable test material first:
   Clip/Track/empty inspector focus without moving the playhead. Track Inspector
   must hide timeline start, replace lock with solo, synchronize the left header's
   name/mute/solo/volume/pan, and leave clip properties/effects untouched.
-- Effects must offer only Add Gain/Compressor/Limiter/Normalizer, without clip/
+- Effects must offer only Add Gain/Compressor/Limiter/Normalizer/Noise Reduction/
+  Amplifier, without clip/
   track duplicates or toggles. No-focus items must be disabled; each invocation
   appends an independent instance to the focused target. Check typed parameters,
   bypass, removal, history/save/open, mono tracks, and stale-editor/preview safety
@@ -120,8 +121,18 @@ Use disposable test material first:
   should restart envelopes, while unchanged effects retain state across live mix
   edits. Normalizer preparation must not run in the callback; test longer/dense
   material for acceptable control-thread preparation time and cached target edits.
-- Open v1/v2/v3 projects and verify unchanged sound, unity new track volume, preserved
-  legacy gain/clipping, v4 saving, and compressor/limiter parameter round trips.
+- Open v1/v2/v3/v4 projects and verify unchanged sound, neutral defaults, preserved
+  legacy gain/clipping, v5 saving, and parameter round trips.
+- Verify dark startup and checked Tools → Dark mode, then toggle to light and back
+  without dirtying the project. Check dark styling in owned dialogs as well.
+- Test Noise Reduction with quiet hiss/hum, voice/music over noise, asymmetric
+  stereo, and low-level wanted details. Adjust noise floor/reduction/attack/release,
+  compare bypass and 0 dB reduction, and check start/stop/seek/mute/gap behavior.
+  This is manual-floor multiband expansion, not a learned-profile/AI denoiser.
+- Test Amplifier at negative/zero/positive dB, including +3 dB default. Compare
+  playback/export, clipping risk, and adding a subsequent limiter. Verify both new
+  effects on clips/tracks, parameter previews/history/removal, save/open, and no-focus
+  disabled menu state. Repeat listening checks at 8/44.1/48/192 kHz as available.
 - Drag the inspector divider to both limits, shrink/restore the window, and
   verify remembered width and timeline/ruler alignment. Change clip selection and
   confirm status text and inspector metadata/effect rows follow the selection.

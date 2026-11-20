@@ -1,6 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="AudioNest.Desktop.App" RequestedThemeVariant="Light">
+             x:Class="AudioNest.Desktop.App" RequestedThemeVariant="Dark">
   <Application.Resources>
     <ResourceDictionary>
       <StreamGeometry x:Key="IconPlay">M5,3 L21,12 L5,21 Z</StreamGeometry>

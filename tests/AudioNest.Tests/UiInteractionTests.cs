@@ -118,18 +118,23 @@ public sealed class UiInteractionTests
         var window = new MainWindow(vm) { WindowState = WindowState.Normal };
         window.Show();
         Layout();
-        Assert.Equal(ThemeVariant.Light, Avalonia.Application.Current!.RequestedThemeVariant);
+        Assert.True(vm.IsDarkMode);
+        Assert.Equal(ThemeVariant.Dark, Avalonia.Application.Current!.RequestedThemeVariant);
         var menu = window.FindControl<Menu>("EditorMenuBar")!;
         Assert.Equal(new[] { "File", "Edit", "Effects", "Tools", "Help" },
             menu.Items.OfType<MenuItem>().Select(i => i.Header));
         var tools = menu.Items.OfType<MenuItem>().Single(i => (string)i.Header! == "Tools");
         var dark = tools.Items.OfType<MenuItem>().Single(i => (string)i.Header! == "Dark mode");
+        Assert.True(dark.IsChecked);
         dark.Command!.Execute(null);
+        Assert.False(vm.IsDarkMode);
+        Assert.False(dark.IsChecked);
+        Assert.Equal(ThemeVariant.Light, Avalonia.Application.Current.RequestedThemeVariant);
+        Assert.False(vm.IsDirty);
+        dark.Command.Execute(null);
         Assert.True(vm.IsDarkMode);
         Assert.True(dark.IsChecked);
         Assert.Equal(ThemeVariant.Dark, Avalonia.Application.Current.RequestedThemeVariant);
-        Assert.False(vm.IsDirty);
-        dark.Command.Execute(null);
         var scroll = window.FindControl<ScrollViewer>("TimelineScroll")!;
         var inspector = window.FindControl<Border>("Inspector")!;
         window.Width = 820;
@@ -163,6 +168,7 @@ public sealed class UiInteractionTests
         vm.Select(vm.Project.Tracks[1].Id, vm.Project.Tracks[1].Clips[0].Id);
         vm.SetTrackPan(vm.Project.Tracks[1].Id, 0.25f);
         vm.FitProject();
+        vm.IsDarkMode = false;
         scroll.Offset = default;
         Layout();
         var frameDirectory = Path.Combine(AppContext.BaseDirectory, "ui-artifacts");

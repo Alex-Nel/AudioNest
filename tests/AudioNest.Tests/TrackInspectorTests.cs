@@ -50,7 +50,8 @@ public sealed class TrackInspectorTests
         var title = inspector.FindControl<TextBlock>("InspectorTitle")!;
         var menu = window.FindControl<Menu>("EditorMenuBar")!.Items.OfType<MenuItem>().Single(i => Equals(i.Header, "Effects"));
         var actions = menu.Items.OfType<MenuItem>().ToArray();
-        Assert.Equal(new[] { "Add Gain", "Add Compressor", "Add Limiter", "Add Normalizer" }, actions.Select(i => (string)i.Header!));
+        Assert.Equal(new[] { "Add Gain", "Add Compressor", "Add Limiter", "Add Normalizer", "Add Noise Reduction", "Add Amplifier" },
+            actions.Select(i => (string)i.Header!));
         Assert.DoesNotContain(menu.Items, item => item is Separator);
         Assert.Null(vm.FocusedTarget);
         Assert.Equal("Clip Inspector", title.Text);
@@ -246,7 +247,7 @@ public sealed class TrackInspectorTests
         var original = json.ToJsonString();
         await File.WriteAllTextAsync(path, original);
         var loaded = await store.LoadAsync(path);
-        Assert.Equal(4, loaded.Version);
+        Assert.Equal(AudioProject.CurrentVersion, loaded.Version);
         Assert.Equal(1, loaded.Tracks[0].Volume);
         Assert.Equal(new EffectSpec(EffectKind.Gain, 2), loaded.Tracks[0].Effects[0]);
         var output = new float[2];

@@ -33,6 +33,8 @@ public sealed class BuiltInEffectFactory : IAudioEffectFactory
         EffectKind.Compressor => new CompressorProcessor(description, format),
         EffectKind.Limiter => new LimiterProcessor(description, format),
         EffectKind.Normalizer => new PeakNormalizerProcessor(description.Value),
+        EffectKind.NoiseReduction => new NoiseReductionProcessor(description, format),
+        EffectKind.Amplifier => new GainProcessor((float)Math.Pow(10, description.Value / 20d)),
         _ => throw new NotSupportedException($"Unsupported effect: {description.Kind}")
     };
 

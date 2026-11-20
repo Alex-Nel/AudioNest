@@ -4,7 +4,11 @@ namespace AudioNest.Domain;
 public static class BuiltInEffects
 {
     public static IReadOnlyList<EffectKind> Available { get; } =
-        Array.AsReadOnly(new[] { EffectKind.Gain, EffectKind.Compressor, EffectKind.Limiter, EffectKind.Normalizer });
+        Array.AsReadOnly(new[]
+        {
+            EffectKind.Gain, EffectKind.Compressor, EffectKind.Limiter, EffectKind.Normalizer,
+            EffectKind.NoiseReduction, EffectKind.Amplifier
+        });
     public static string Name(EffectKind kind) => kind switch
     {
         EffectKind.Gain => "Gain",
@@ -12,6 +16,8 @@ public static class BuiltInEffects
         EffectKind.Compressor => "Compressor",
         EffectKind.Limiter => "Limiter",
         EffectKind.Normalizer => "Normalizer",
+        EffectKind.NoiseReduction => "Noise Reduction",
+        EffectKind.Amplifier => "Amplifier",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
     public static EffectSpec Create(EffectKind kind) => kind switch
@@ -21,6 +27,8 @@ public static class BuiltInEffects
         EffectKind.Compressor => new(kind, -18),
         EffectKind.Limiter => new(kind, 0.8912509f, ReleaseMs: 50),
         EffectKind.Normalizer => new(kind, 0.8912509f),
+        EffectKind.NoiseReduction => new(kind, -45, AttackMs: 5, ReleaseMs: 100, ReductionDb: 12),
+        EffectKind.Amplifier => new(kind, 3),
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 }

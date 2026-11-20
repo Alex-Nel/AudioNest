@@ -25,7 +25,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private double _timelineViewportWidth = 600;
     private double _timelineViewportHeight = 300;
     private bool _isSnappingEnabled = true;
-    private bool _isDarkMode;
+    private bool _isDarkMode = true;
     private float _outputPeak;
     private float _inputPeak;
     private ClipClipboardGroup? _clipboard;

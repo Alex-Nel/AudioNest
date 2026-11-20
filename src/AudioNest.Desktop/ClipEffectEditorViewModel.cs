@@ -136,6 +136,8 @@ public static class ClipEffectEditorFactory
         EffectKind.HardLimiter or EffectKind.Limiter => new LimiterEffectEditorViewModel(owner, clip, index, spec, isTrack),
         EffectKind.Compressor => new CompressorEffectEditorViewModel(owner, clip, index, spec, isTrack),
         EffectKind.Normalizer => new NormalizerEffectEditorViewModel(owner, clip, index, spec, isTrack),
+        EffectKind.NoiseReduction => new NoiseReductionEffectEditorViewModel(owner, clip, index, spec, isTrack),
+        EffectKind.Amplifier => new AmplifierEffectEditorViewModel(owner, clip, index, spec, isTrack),
         _ => throw new NotSupportedException($"No clip editor registered for {spec.Kind}.")
     };
 }
@@ -191,4 +193,32 @@ public sealed class NormalizerEffectEditorViewModel : SingleParameterEffectEdito
     protected override double Maximum => 1;
     protected override double Step => 0.01;
     public override string ValueText => $"{20 * Math.Log10(Value):0.0} dBFS";
+}
+
+public sealed class NoiseReductionEffectEditorViewModel : ClipEffectEditorViewModel
+{
+    public NoiseReductionEffectEditorViewModel(MainViewModel owner, Guid id, int index, EffectSpec spec, bool isTrack = false)
+        : base(owner, id, index, spec, isTrack)
+    {
+        Parameters =
+        [
+            new(this, "Noise floor", -90, -10, 0.5, s => s.Value, (s, v) => s with { Value = v }, v => $"{v:0.0} dBFS"),
+            new(this, "Reduction", 0, 36, 0.5, s => s.ReductionDb, (s, v) => s with { ReductionDb = v }, v => $"{v:0.0} dB"),
+            new(this, "Attack", 0.1, 200, 0.1, s => s.AttackMs, (s, v) => s with { AttackMs = v }, v => $"{v:0.0} ms"),
+            EffectParameterViewModel.Release(this)
+        ];
+    }
+    public override string Name => "Noise Reduction";
+}
+
+public sealed class AmplifierEffectEditorViewModel : SingleParameterEffectEditorViewModel
+{
+    public AmplifierEffectEditorViewModel(MainViewModel owner, Guid id, int index, EffectSpec spec, bool isTrack = false)
+        : base(owner, id, index, spec, isTrack) { }
+    public override string Name => "Amplifier";
+    protected override double Minimum => -60;
+    protected override double Maximum => 36;
+    protected override double Step => 0.5;
+    public override string ValueText => $"{Value:+0.0;-0.0;0.0} dB";
+    public string MultiplierText => $"{Math.Pow(10, Value / 20):0.00}× amplitude";
 }

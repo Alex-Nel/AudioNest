@@ -71,10 +71,10 @@ public sealed class JsonProjectStore : IProjectStore
         if (stream.Length > 16 * 1024 * 1024) throw new InvalidDataException("Project metadata exceeds 16 MB.");
         var project = await JsonSerializer.DeserializeAsync(stream, ProjectJsonContext.Default.AudioProject, cancellationToken)
             ?? throw new InvalidDataException("Empty project.");
-        // V2 added track layout; V3 added clip mix; V4 adds track volume/dynamics.
-        // Older sources
+        // V2 added track layout; V3 clip mix; V4 track volume/dynamics;
+        // V5 adds noise reduction/amplifier and reduction depth. Older sources
         // retain their sound via defaults, and remain unchanged on disk until Save.
-        if (project.Version is 1 or 2 or 3) project = project with { Version = AudioProject.CurrentVersion };
+        if (project.Version is 1 or 2 or 3 or 4) project = project with { Version = AudioProject.CurrentVersion };
         project.Validate();
         var directory = Path.GetDirectoryName(path)!;
         var assets = ImmutableArray.CreateBuilder<AudioAsset>();

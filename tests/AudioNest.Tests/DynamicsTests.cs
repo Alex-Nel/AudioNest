@@ -50,6 +50,7 @@ public sealed class DynamicsTests
     [Theory]
     [InlineData(EffectKind.Compressor)]
     [InlineData(EffectKind.Limiter)]
+    [InlineData(EffectKind.NoiseReduction)]
     public void DynamicsAreBlockIndependentAndResetOnDiscontinuousRender(EffectKind kind)
     {
         var project = TestProjects.Create(4800);
@@ -144,6 +145,8 @@ public sealed class DynamicsTests
     [InlineData(EffectKind.Compressor)]
     [InlineData(EffectKind.Limiter)]
     [InlineData(EffectKind.Normalizer)]
+    [InlineData(EffectKind.NoiseReduction)]
+    [InlineData(EffectKind.Amplifier)]
     public void PreparedDynamicsDoNotAllocateInAudioCallback(EffectKind kind)
     {
         var project = TestProjects.Create(10000);
@@ -151,6 +154,10 @@ public sealed class DynamicsTests
         var buffer = TestProjects.Buffer(10000);
         var plan = new RenderPlan(project, _ => buffer);
         var block = new float[128];
+        // Exercise the full processor path before counting steady-state callback
+        // allocations, rather than including first-use runtime/tiering setup.
+        for (var i = 0; i < 128; i++) plan.Render(i * 64, block);
+        plan.Reset();
         plan.Render(0, block);
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 1; i < 50; i++) plan.Render(i * 64, block);

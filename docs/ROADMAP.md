@@ -7,7 +7,8 @@
 | Non-destructive editing | Implemented; shared sources and bounded undo/redo |
 | Clip, segment, and track effects | Focused Clip/Track Inspector; add-only scoped Effects menu; independent global volume; split clips define segments |
 | Compressor/limiter/normalizer | Implemented: stereo-linked dynamics and analyzed sample-peak normalization; legacy hard clipper retained |
-| Noise reduction/reverb/echo/distortion | Not implemented |
+| Noise reduction/amplifier | Implemented: manual-floor multiband downward expansion and dB gain; no learned-profile/AI denoising |
+| Reverb/echo/distortion | Not implemented |
 | Independent pitch, tempo, speed | Not implemented |
 | VST 2.x / 3.x | Not implemented; ABI/licensing/isolation design still needed |
 | Microphone recording | Default mono input, live waveform draft, finalized WAV imported as a clip |
@@ -31,7 +32,7 @@
      and configurable shortcuts; group clipboard/dragging, trims, and snapping exist.
 3. **DSP**
    - Block processor tails, pre-roll, latency compensation, meters, automation.
-   - Echo/reverb, noise profiling/reduction, distortion, true-peak/LUFS analysis.
+   - Echo/reverb, learned noise profiles/advanced denoising, distortion, true-peak/LUFS analysis.
    - Background/progress/cancel orchestration for normalization/noise profiling.
    - Independent time stretch/pitch shift behind a dedicated processor adapter.
 4. **Production recording**

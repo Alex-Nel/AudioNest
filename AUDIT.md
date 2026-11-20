@@ -653,3 +653,37 @@ Further implementation and verification entries are appended below.
   hardware buffer-size acceptance, non-Windows/native menus, and OS scaling remain
   manual. Sample-peak processors do not guarantee inter-sample true-peak ceilings.
 - `TODO.txt` was not changed. No commits or pushes were created.
+
+## 2026-11-19 — Dark startup, noise reduction, and amplifier
+
+- Read the two new TODO items from a clean working tree.
+- Made dark mode the application/view-model default while retaining the session
+  Tools-menu toggle and leaving project content unchanged.
+- Added a real-time, stereo-linked complementary-band noise suppressor with adjustable
+  noise floor, reduction depth, attack, and release; explicitly no profile learning.
+- Added a dB amplifier with independent editable gain, target-scoped menu entries,
+  parameter history/bypass/removal, and source-generated persistence.
+- Used v5 for the new effect identities/reduction-depth parameter, preserving v1–v4
+  audio and their defaults on in-memory upgrade.
+- Added DSP, editor, migration, normalization, and live-state-handoff coverage;
+  expanded block-independence and callback-allocation tests. Callback allocation
+  measurement now warms the processor path before counting steady-state allocations.
+- Updated README, architecture, roadmap, manual acceptance, and About text.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **138 passed, 0 failed,
+  0 skipped**.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git -c core.autocrlf=false diff --check`: passed.
+- Windows x64 Native AOT publish succeeded without warnings. The published
+  `artifacts/aot/win-x64/AudioNest.Desktop.exe` exposed a main window and exited
+  with code 0 after a normal close request.
+- Inspected the dark Track Inspector capture with both new effect editors.
+- Noise Reduction is manual-floor multiband downward expansion, not learned-profile,
+  AI, or FFT denoising; it may attenuate wanted quiet detail or color transients.
+  Amplifier does not automatically normalize or limit boosted peaks.
+- No physical playback/capture was started. Listening, hardware audio, non-Windows,
+  and OS-scaling acceptance remain manual; the native smoke test verifies startup/
+  normal close, not native effect playback.
+- `TODO.txt` was not changed. No commits or pushes were created.

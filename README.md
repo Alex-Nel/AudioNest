@@ -67,7 +67,7 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
 - **Snap** magnetically aligns either moving clip edge with the playhead or other
   clip boundaries (across tracks) within eight screen pixels. Hold **Alt** to
   bypass it for one drag; turn Snap off for free positioning.
-- Light mode is the neutral default. Choose **Tools → Dark mode** to toggle.
+- Dark mode is the startup default. Toggle **Tools → Dark mode** off for light mode.
   The light-mode clip canvas uses a soft gray background; track headers are unchanged.
   Theme, mouse tool, and snapping preferences are session-local, not project edits.
 - The timeline fills the available viewport; the track headers stay pinned during
@@ -126,7 +126,7 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   their mute/lock/volume/pan. Unlock before repositioning a pasted locked clip.
 - Each clip/track effect has its own section, in processing order, with parameter controls,
   an Enabled/bypass checkbox, and a remove button. Use the **Effects** menu to
-  **add** Gain, Compressor, Limiter, or Normalizer to the focused clip/track.
+  **add** Gain, Compressor, Limiter, Normalizer, Noise Reduction, or Amplifier to the focused clip/track.
   Each click appends an independent instance with defaults; with nothing focused,
   these menu items are disabled and cannot edit anything. Global volume is applied
   before the corresponding effect chain and combines
@@ -147,6 +147,19 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   gain is then used for playback/export, preserving relative dynamics; silence
   stays silent. This is **not** automatic gain riding or RMS/LUFS normalization.
   Later effects/pan can still change the resulting peak.
+- **Noise Reduction:** real-time multiband suppression with a manually adjusted
+  noise-floor reference (default −45 dBFS), reduction depth (12 dB), attack (5 ms),
+  and release (100 ms). It attenuates quiet frequency bands while louder bands stay
+  open, rather than simply muting the whole signal between words. Stereo channels
+  share each band's gain; 0 dB reduction is transparent. It introduces no buffered
+  latency or added output tail.
+  This is a basic frequency-selective downward expander, **not** learned-profile,
+  AI, or FFT spectral denoising. It can reduce quiet wanted detail/color transients;
+  set the floor conservatively and compare with bypass on representative material.
+- **Amplifier:** clean dB-based boost/attenuation, default **+3 dB**, adjustable
+  **−60 to +36 dB**. It is independent of global volume and the multiplier-based
+  Gain effect. It does not automatically normalize, limit, or simulate amp distortion;
+  put a limiter after it when stronger boosts need peak control.
 - Existing projects' **Hard limiter** sections remain their original hard clippers.
 
 Normalization analysis happens during graph preparation, not in the audio callback.
@@ -186,11 +199,11 @@ is not yet implemented. No source audio is rewritten.
 - Missing/changed-length media or unsupported project versions fail with an error,
   without replacing the current session. Autosave/recovery UI and garbage
   collection are not implemented. Back up valuable recordings.
-- New saves use project format **v4**, including independent track volume and
-  dynamics parameters. V1/v2/v3 projects upgrade in memory, preserving existing
+- New saves use project format **v5**, including the new effect types and noise
+  reduction depth. V1/v2/v3/v4 projects upgrade in memory, preserving existing
   ordered Gain/Hard limiter effects and adding unity track volume; older clip/layout
   defaults remain neutral. Their files are not rewritten until Save. Older AudioNest
-  versions reject v4 rather than silently ignoring these audio semantics.
+  versions reject v5 rather than silently ignoring these audio semantics.
 
 ## Architecture
 
@@ -236,14 +249,15 @@ See [docs/TESTING.md](docs/TESTING.md) for hardware acceptance checks.
   the hardware adapter. Export uses default codec settings (no bitrate/quality UI).
   Individual decoded assets are limited to
   **10 minutes** and kept in RAM; this is not a large-session streaming engine.
-- Gain, compressor, limiter, and peak normalizer are included. The final mix is
+- Gain, compressor, limiter, peak normalizer, multiband noise reduction, and amplifier
+  are included. The final mix is
   still safety-clamped, not loudness-normalized. Unchanged dynamics retain envelopes
   across live mix edits; newly edited/bypassed effects and seeks restart their
   envelopes without pre-roll or parameter crossfades.
 - Capture uses the default microphone in mono with a live peak-envelope preview,
   but no monitoring, overdub playback, device-settings UI, or recording-time effects.
   The envelope retains at most ten minutes; longer takes still exceed the import cap.
-- Pitch/tempo/speed processing, noise reduction/reverb/echo/distortion, and VST hosting are
+- Pitch/tempo/speed processing, learned-profile/AI denoising, reverb/echo/distortion, and VST hosting are
   **not implemented**. Extension contracts are not claims of those capabilities.
 - Undo/redo retains 200 metadata edits and is not persisted across sessions.
 - Working media is intentionally retained; clean it manually only after saving

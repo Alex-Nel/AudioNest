@@ -60,6 +60,7 @@ are rejected on the live path. Export creates a separate graph, so it never shar
 processor state with playback.
 
 At the callback boundary, `AdoptStateFrom` transfers compressor/limiter envelopes
+and noise-reduction filter/gain state
 for unchanged immutable effect records on the same track/clip. Only the audio
 thread reads/copies that mutable state, after the old callback has completed.
 New, edited, bypassed/unbypassed effects start fresh. Pause/seek/stop quiesce the
@@ -141,7 +142,7 @@ Remove buttons sit immediately beside effect names. The add-only Effects menu ha
 one item per available effect and dispatches to the current focused target;
 no-focus commands are disabled and guarded in the view model.
 
-`ClipEffectEditorFactory` explicitly registers typed gain/dynamics/normalizer editors; typed
+`ClipEffectEditorFactory` explicitly registers typed gain/dynamics/normalizer/noise/amplifier editors; typed
 XAML templates provide their individual controls. The common base owns only section
 lifecycle (enabled/bypass/removal), target capture, and gesture-level effect snapshots.
 `EffectParameterViewModel` supplies descriptor-based controls for compressor's five
@@ -194,13 +195,14 @@ The caller transfers array ownership and must not subsequently mutate it.
 callback through `IAudioEffectFactory`. Implement `Process` without allocation,
 blocking, I/O, or UI; implement `Reset` for seek/stop. Inject the factory when
 preparing a render plan. Built-in gain, legacy hard clipping, stereo-linked peak
-compression, and zero-lookahead peak limiting are the reference examples. Dynamics
+compression, zero-lookahead peak limiting, multiband suppression, and a dB amplifier
+are the reference examples. Dynamics
 process by sample frame, preserve stereo balance, and do not depend on block size.
 
 For additional built-ins, extend the effect description, validation, source-generated
 serialization if needed, factory, tests, and inspector. Persistent descriptions must
-remain separate from runtime DSP. V4 `EffectSpec` stores the primary value plus
-ratio/attack/release/makeup with explicit optional constructor defaults. Validation
+remain separate from runtime DSP. V5 `EffectSpec` stores the primary value plus
+ratio/attack/release/makeup/reduction depth with explicit optional constructor defaults. Validation
 rejects non-finite/out-of-range parameters, including bypassed descriptions.
 
 `IPeakNormalizer` is configured during `RenderPlan` construction. Clip analysis
@@ -209,7 +211,8 @@ non-muted clips, their effects/balance, global track volume, and the track prefi
 It measures pre-safety-clamp sample peaks and sets a fixed double-precision gain.
 No full-session PCM copy or callback scan is used; silent sources remain silent.
 Merged occupied intervals avoid traversing distant empty timeline regions.
-`AdvanceSilence` analytically decays compressor/limiter release across these gaps.
+`AdvanceSilence` analytically decays compressor/limiter release and noise-reduction
+filters/per-band gain across these gaps.
 This assumes built-ins produce silence from silence; future tail-producing effects
 must extend analysis scheduling before using sparse skipping.
 
@@ -221,6 +224,25 @@ always new, never shared with the callback. Analysis still runs on the control
 thread; progress, cancellation, and background-job orchestration remain future work.
 `MainViewModel.Edit` prepares/validates before committing history, so failed
 normalization does not publish a project that differs from the playing graph.
+
+`NoiseReductionProcessor` uses a complementary parallel one-pole filter bank with
+cutoffs at 80/250/800/2500/7000 Hz where below 80% of Nyquist, plus the high residual.
+It shares soft noise-suppression gain between stereo channels per band, with a
+bandwidth-weighted manual broadband noise-floor reference and bounded reduction
+depth. Opening/closing gains use attack/release smoothing. A 12-double stack scratch
+and constructor-allocated state arrays keep callback work bounded/allocation-free.
+Zero reduction passes samples through exactly. Zero-input frames output exact silence
+while internal filters/gains decay, so clip lengths and the no-output-tail contract
+are preserved. Sparse silence advance and unchanged-record graph handoff preserve
+state. This is frequency-selective downward expansion, not profile learning, FFT
+overlap-add, AI denoising, or a substitute for a later restoration-quality processor.
+It can color/attenuate wanted low-level content; listening acceptance remains important.
+
+Amplifier converts its primary dB value to an amplitude factor at construction.
+It reuses the stateless gain processor, with no automatic limiting or saturation;
+the existing master ceiling and optional subsequent limiter remain independent.
+Dark startup is set in both application XAML and the view-model default to avoid
+an initial light-theme transition; the Tools toggle remains session-local.
 
 Before adding delay/reverb, buffering pitch/tempo processors, or plugins, add:
 
@@ -278,13 +300,13 @@ an effect into the only surviving source.
 
 ## Persistence and AOT
 
-Version 4 is source-generated JSON plus a sibling media directory. V1/V2/V3 upgrade
-in memory with neutral track volume/dynamics defaults and preserved legacy effect
+Version 5 is source-generated JSON plus a sibling media directory. V1/V2/V3/V4 upgrade
+in memory with neutral defaults and preserved legacy effect
 order; older clip/layout defaults remain neutral.
 Optional JSON constructor parameters explicitly default missing clip/track volume to
 unity (source-generated init-only assignment would otherwise use zero).
 The original file is unchanged until Save. The version bump prevents older readers
-from ignoring new dynamics/track-volume semantics.
+from ignoring new effect identities/reduction-depth semantics.
 Save copies
 SHA-256-addressed media first and replaces a temporary metadata file last. Export
 uses the same temporary-file publication pattern. These protect the old file on

@@ -84,6 +84,26 @@
                    FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" />
       </StackPanel>
     </DataTemplate>
+    <DataTemplate DataType="{x:Type local:NoiseReductionEffectEditorViewModel}" x:DataType="local:NoiseReductionEffectEditorViewModel">
+      <StackPanel Spacing="6">
+        <ItemsControl ItemsSource="{Binding Parameters}" />
+        <TextBlock Text="Multiband suppression below an adjustable noise floor. Quiet detail can be reduced; no learned noise profile."
+                   FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type local:AmplifierEffectEditorViewModel}" x:DataType="local:AmplifierEffectEditorViewModel">
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="Amplification" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding ValueText}" />
+        </Grid>
+        <local:EffectParameterSlider Minimum="-60" Maximum="36" Value="{Binding Value}" TickFrequency="0.5"
+                                    SmallChange="0.5" IsSnapToTickEnabled="True" a:AutomationProperties.Name="Amplification in dB" />
+        <TextBlock Text="{Binding MultiplierText}" FontSize="11" Foreground="{DynamicResource EditorMuted}" />
+        <TextBlock Text="Boosts or attenuates without automatic normalization. Add a limiter afterward to control peaks."
+                   FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" />
+      </StackPanel>
+    </DataTemplate>
   </UserControl.DataTemplates>
   <ScrollViewer x:Name="InspectorScroll" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="12" Margin="0,12">
