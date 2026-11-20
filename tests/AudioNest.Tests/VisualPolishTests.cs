@@ -34,7 +34,7 @@ public sealed class VisualPolishTests
     }
 
     [AvaloniaFact]
-    public async Task CompactInspectorKeepsEdgeToEdgeDividersAndAdjacentRemoveButtonsAtEveryWidth()
+    public async Task CompactInspectorKeepsEdgeToEdgeDividersAndRightAlignedHeaderButtonsAtEveryWidth()
     {
         using var directory = new TempDirectory();
         using var backend = new FakeBackend();
@@ -78,10 +78,11 @@ public sealed class VisualPolishTests
                 foreach (var heading in inspector.GetVisualDescendants().OfType<Grid>().Where(g => g.Classes.Contains("effectHeading")))
                 {
                     var name = heading.Children.OfType<TextBlock>().Single();
-                    var remove = heading.Children.OfType<Button>().Single();
+                    var remove = heading.Children.OfType<Button>().Single(b => b.Classes.Contains("removeEffect"));
                     var gap = remove.TranslatePoint(default, heading)!.Value.X - name.Bounds.Right;
-                    Assert.InRange(gap, 6, 10);
-                    Assert.True(remove.Bounds.Right <= width - 24);
+                    Assert.InRange(gap, 0, 8);
+                    Assert.Equal(heading.Bounds.Width, remove.Bounds.Right, 4);
+                    Assert.True(name.Bounds.Left >= 26);
                 }
             }
         window.Height = 1000; Layout();

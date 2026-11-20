@@ -82,7 +82,8 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   divider to resize it (200–520 px); that width is retained during the session.
    **Clip Inspector / Track Inspector** has compact global properties and individual effect
   editors, separated by edge-to-edge, high-contrast 5 px lines rather than boxes.
-  Each effect's remove button sits beside its name.
+  Each effect has a shaded header with an expand/collapse arrow and name on the left,
+  and its remove button on the right.
 - The compact status bar shows playhead time to six decimal places plus the exact
   project-frame index. Its left side identifies the selected track and clip;
   operation errors and recording/busy state remain visible.
@@ -138,6 +139,16 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   before the corresponding effect chain and combines
   with any existing gain effects. Parameter drags preview audio and commit one undo
   step. Removing/bypassing/editing a section affects only that effect instance.
+- Effects start **expanded**. Click their header arrow to hide/show the properties;
+  the header stays visible. Collapse state is session-local UI state, remembered
+  per target/effect through edits, reordering, selection changes, and undo/redo.
+  It does not dirty the project and resets on New/Open.
+- **Drag an effect header** to change processing order within its clip/track.
+  A line marks the insertion point; long inspectors scroll when dragged near an
+  edge. Dropping commits one undoable change and updates live audio without
+  stopping playback. Arrow/remove buttons and property controls do not start
+  reordering. Escape, capture loss, dropping outside the inspector, or changing
+  the target/chain cancels the drag. Effect order is saved with the project.
 
 ### Built-in effects
 

@@ -486,6 +486,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             index < 0 || index >= chain.Length || !ReferenceEquals(chain[index], expected) ? chain : chain.SetItem(index, replacement));
         _transport.UpdatePlan(PreparePlan(preview));
     }
+    public void ReorderEffect(EffectTarget target, int from, EffectSpec expected, int to)
+    {
+        if (!HasEffectTarget || FocusedTarget != target || from == to) return;
+        foreach (var editor in Inspector.Effects) editor.CancelAdjustment();
+        Edit("Reorder effects", p => UpdateEffects(p, target, chain =>
+            from < 0 || from >= chain.Length || to < 0 || to >= chain.Length || !ReferenceEquals(chain[from], expected)
+                ? chain : chain.RemoveAt(from).Insert(to, expected)), keepPlaying: true);
+    }
     public void SetTrackName(Guid id, string name) => Edit("Track name",
         p => ProjectEdits.UpdateTrack(p, id, t => t with { Name = name }), keepPlaying: true);
     public void SetTrackMuted(Guid id, bool muted) => Edit("Track mute",
@@ -664,6 +672,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         if (!CanEdit) return;
         _transport.Stop();
+        Inspector.Reset();
         _projectPath = null;
         _session.Open(ProjectEdits.AddTrack(new AudioProject()));
         _library.Clear();
@@ -687,6 +696,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 staged.Add((asset, buffer));
             }
             _transport.Stop();
+            Inspector.Reset();
             _library.Clear();
             foreach (var item in staged) _library.Add(item.Asset.Id, item.Buffer);
             _projectPath = path;

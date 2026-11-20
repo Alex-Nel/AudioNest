@@ -831,3 +831,48 @@ Further implementation and verification entries are appended below.
   listening/resampling-quality acceptance, non-Windows/native menu interaction,
   and OS scaling remain manual. Resampling uses the existing codec/adapter path.
 - `TODO.txt` was not changed. No commits or pushes were created.
+
+## 2026-11-20 — Collapsible, drag-reorderable inspector effects
+
+- Started from a clean working tree and implemented the requested clip/track
+  inspector adjustment; Effect Packages remain a future feature.
+- Added persistent, subtly shaded effect headers with arrow/name left and removal
+  right. Effects start expanded; the arrow hides/shows Enabled and parameter
+  controls without hiding the header or changing project/audio/history.
+- Added header-only pointer dragging with source shading, insertion guide,
+  automatic edge scrolling, and one undoable commit on release. Arrow/remove
+  buttons and parameter controls do not initiate reordering. Escape, capture loss,
+  outside drop, detachment, and target/chain changes cancel safely.
+- Reordering uses guarded target/index/expected-record checks and immutable chain
+  movement through the existing prepare-before-history edit path. It updates real
+  DSP order, reanalyzes affected normalizer prefixes, and keeps live playback,
+  device, and cursor running. Active parameter previews are canceled before moving.
+- Reconciled stable typed editors by target and immutable record/revision identity.
+  Duplicate effect kinds retain their own parameters, current indices, removal
+  actions, and expansion state through reorder/edit/remove/undo/redo and focus
+  switches. UI pools reset on New/Open; expansion is not persisted or dirtying.
+- Kept source media and project schema unchanged; saved effect arrays already
+  preserve processing order. No new dependencies or audio callback UI work.
+- Updated README, architecture, roadmap, manual acceptance, and the prior visual
+  regression expectation from adjacent remove buttons to right-aligned headers.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **275 passed, 0 failed,
+  0 skipped**, without build warnings/errors.
+- Added 30 cases covering expanded defaults, collapse/clean-project semantics,
+  both scopes/themes, duplicate identity/index/parameter safety, upward/downward
+  pointer drags with expanded/collapsed bodies, insertion/no-preview-history,
+  cancellation/stale targets, button isolation, exact one-step history, playback
+  continuity/callback allocation, WAV parity/save-open order, normalizer prefixes
+  and atomic failed preparation, queued-preview safety, and long-chain auto-scroll.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git -c core.autocrlf=false diff --check`: passed.
+- Inspected dark/light collapsed headers, expanded effect controls, and the
+  insertion guide under ignored test `ui-artifacts/`.
+- Windows x64 Native AOT publish succeeded without warnings. The published
+  executable exposed a main window and exited normally with code 0.
+- No physical playback/capture was started. Native drag/scroll behavior, physical
+  listening, non-Windows interaction, and OS scaling remain manual; the native
+  smoke check verifies startup/normal close, not full inspector interaction.
+- `TODO.txt` was not changed. No commits or pushes were created.

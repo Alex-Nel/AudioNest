@@ -124,8 +124,9 @@ space clears focus and leaves an empty Clip Inspector. Header clicks focus track
 Invalid text remains local without changing persisted metadata. A text-edit's own
 notifications preserve the typed form/caret; unrelated property edits do not erase
 invalid input. Source-region metadata stays read-only. Effect sections are stable
-across ordinary notifications/parameter edits, preserving focused controls. Changes
-in selection or chain shape rebuild the relevant editor set. Commands capture the
+across ordinary notifications/parameter edits, preserving focused controls. The
+inspector reconciles editor identities across chain/selection changes rather than
+rebuilding every editor. Commands capture the
 target ID/scope, chain index, and expected effect record; detached/stale editors cannot
 silently edit another instance after removal. The editor structure itself requires
 no new persisted effect IDs.
@@ -146,13 +147,33 @@ theme-aware high-contrast 5 px dividers with no enclosing boxes. Content padding
 belongs to the section bodies, not the scroll container, so separators stay full
 width as the inspector resizes/scrolls. Global fields are 26 px tall; checkboxes
 size automatically to the theme's indicator row (normally 32 px) to avoid clipping.
-Remove buttons sit immediately beside effect names. The add-only Effects menu has
+Each effect has a persistent shaded header: arrow/name on the left, remove on the
+right. Expanded-by-default bodies include Enabled and the typed parameter editor.
+The add-only Effects menu has
 one item per available effect and dispatches to the current focused target;
 no-focus commands are disabled and guarded in the view model.
 
 `ClipEffectEditorFactory` explicitly registers typed gain/dynamics/normalizer/noise/amplifier editors; typed
 XAML templates provide their individual controls. The common base owns only section
 lifecycle (enabled/bypass/removal), target capture, and gesture-level effect snapshots.
+It also owns presentation-only expansion/drag state and a mutable current chain
+index. `ClipInspectorViewModel` pools editors per target and matches immutable
+effect-record references before falling back to same-index/kind parameter revisions.
+Aliases for previously seen revisions let undo/redo and repeated identical effect
+kinds retain the correct editor/expansion state. Removed editors are inactive;
+New/Open clears the UI pool. No persistent effect IDs or schema changes are needed.
+
+Header pointer capture tracks a fixed editor/record sequence. Reordering does not
+mutate metadata during the drag: the view shades the source, shows an insertion
+line, and scrolls near viewport edges. Arrow/remove controls are excluded. Escape,
+capture loss, detachment, target/chain changes, or an outside drop cancel. On release
+the editor supplies its target/index/expected record to `ReorderEffect`; the
+immutable array is moved once through the existing prepared-graph/history path.
+Active parameter previews are canceled before moving to avoid queued slider releases
+editing the new slot. Failed preparation leaves order/history unchanged.
+Reordering retains effect descriptions, values, bypass and collapse state; it
+rebuilds the actual processing order and invalidates affected normalization prefixes.
+Same-format graph publication keeps playback/device/position continuous.
 `EffectParameterViewModel` supplies descriptor-based controls for compressor's five
 parameters and limiter release, sharing one undoable commit per gesture.
 `SingleParameterEffectEditorViewModel` is an optional gesture/preview helper, not

@@ -10,6 +10,9 @@ public abstract class ClipEffectEditorViewModel : INotifyPropertyChanged
     protected readonly MainViewModel Owner;
     protected EffectSpec Spec;
     private EffectSpec? _preview;
+    private readonly HashSet<EffectSpec> _versions = new(ReferenceEqualityComparer.Instance);
+    private bool _isExpanded = true;
+    private bool _isReordering;
     protected EffectSpec Current => _preview ?? Spec;
     protected ClipEffectEditorViewModel(MainViewModel owner, Guid clip, int index, EffectSpec spec, bool isTrack = false)
     {
@@ -18,11 +21,14 @@ public abstract class ClipEffectEditorViewModel : INotifyPropertyChanged
         Target = new(clip, isTrack);
         Index = index;
         Spec = spec;
+        _versions.Add(spec);
         Remove = new(() => Commit(null), () => CanEdit);
     }
     public Guid ClipId { get; }
     public EffectTarget Target { get; }
-    public int Index { get; }
+    public int Index { get; internal set; }
+    internal EffectSpec Description => Spec;
+    internal bool Matches(EffectSpec spec) => _versions.Contains(spec);
     public EffectKind Kind => Spec.Kind;
     public abstract string Name { get; }
     public bool CanEdit => Owner.HasEffectTarget && Owner.FocusedTarget == Target && Owner.Inspector.Effects.Contains(this);
@@ -33,6 +39,28 @@ public abstract class ClipEffectEditorViewModel : INotifyPropertyChanged
         set { if (CanEdit && value != Enabled) Commit(Spec with { Bypassed = !value }); }
     }
     public UiCommand Remove { get; }
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            Changed();
+        }
+    }
+    public string ExpansionGlyph => IsExpanded ? "▾" : "▸";
+    public string ExpansionHint => $"{(IsExpanded ? "Collapse" : "Expand")} {Name}";
+    public string RemoveHint => $"Remove {Name}";
+    public bool IsReordering
+    {
+        get => _isReordering;
+        internal set { if (_isReordering != value) { _isReordering = value; Changed(); } }
+    }
+    public void MoveTo(int index)
+    {
+        if (CanEdit) Owner.ReorderEffect(Target, Index, Spec, index);
+    }
     public event PropertyChangedEventHandler? PropertyChanged;
     protected void Changed()
     {
@@ -76,7 +104,7 @@ public abstract class ClipEffectEditorViewModel : INotifyPropertyChanged
         }
         Changed();
     }
-    public virtual void Refresh(EffectSpec spec) { Spec = spec; Changed(); Remove.Refresh(); }
+    public virtual void Refresh(EffectSpec spec) { _versions.Add(spec); Spec = spec; Changed(); Remove.Refresh(); }
 }
 
 /// <summary>Reusable one-parameter gesture handling, separate from the section contract.</summary>

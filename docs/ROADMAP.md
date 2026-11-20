@@ -5,7 +5,7 @@
 | Multitrack timeline with waveforms | Implemented; grouped selection/dragging, rename, resizable tracks |
 | Split/delete/move shortcuts | Implemented; razor, edge trims, cut/copy/paste, and context menus |
 | Non-destructive editing | Implemented; shared sources and bounded undo/redo |
-| Clip, segment, and track effects | Focused Clip/Track Inspector; add-only scoped Effects menu; independent global volume; split clips define segments |
+| Clip, segment, and track effects | Focused Clip/Track Inspector; collapsible, drag-reorderable sections; add-only scoped Effects menu; independent global volume; split clips define segments |
 | Compressor/limiter/normalizer | Implemented: stereo-linked dynamics and analyzed sample-peak normalization; legacy hard clipper retained |
 | Noise reduction/amplifier | Implemented: manual-floor multiband downward expansion and dB gain; no learned-profile/AI denoising |
 | Reverb/echo/distortion | Implemented: bounded algorithmic reverb/feedback delay and soft saturation; clip/project edges truncate tails |

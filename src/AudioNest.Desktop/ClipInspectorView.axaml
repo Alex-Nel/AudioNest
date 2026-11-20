@@ -30,6 +30,30 @@
       <Setter Property="FontSize" Value="12" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
+    <Style Selector="Border.effectHeader">
+      <Setter Property="Background" Value="{DynamicResource EffectHeaderBackground}" />
+    </Style>
+    <Style Selector="Border.effectHeader.dragging">
+      <Setter Property="Opacity" Value="0.6" />
+    </Style>
+    <Style Selector="ToggleButton.effectExpand">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Width" Value="26" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" CornerRadius="2">
+            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ToggleButton.effectExpand:pointerover">
+      <Setter Property="Background" Value="{DynamicResource EditorBorder}" />
+    </Style>
   </UserControl.Styles>
   <UserControl.DataTemplates>
     <!-- Each effect owns its editor template; multi-parameter effects can supply
@@ -126,6 +150,7 @@
       </StackPanel>
     </DataTemplate>
   </UserControl.DataTemplates>
+  <Grid>
   <ScrollViewer x:Name="InspectorScroll" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="12" Margin="0,12">
       <TextBlock x:Name="InspectorTitle" Text="{Binding Title}" Classes="section" FontSize="12" Margin="12,0" />
@@ -170,13 +195,19 @@
       <ItemsControl x:Name="EffectSections" ItemsSource="{Binding Effects}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="local:ClipEffectEditorViewModel">
-            <StackPanel Margin="0,0,0,12">
-              <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}" Margin="12,0">
-                <Grid Classes="effectHeading" ColumnDefinitions="*,Auto" HorizontalAlignment="Left">
-                  <TextBlock Text="{Binding Name}" Classes="effectName" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
-                  <Button Grid.Column="1" Content="×" Classes="track removeEffect" Command="{Binding Remove}" Margin="8,0,0,0"
-                          ToolTip.Tip="Remove this effect" a:AutomationProperties.Name="Remove clip effect" />
+            <StackPanel Classes="effectSection" Margin="0,0,0,12">
+              <Border Classes="effectHeader" Classes.dragging="{Binding IsReordering}" Margin="8,0" Padding="4"
+                      CornerRadius="2" IsEnabled="{Binding CanEdit}" Cursor="SizeAll" ToolTip.Tip="Drag this header to reorder effects">
+                <Grid Classes="effectHeading" ColumnDefinitions="Auto,*,Auto">
+                  <ToggleButton Classes="effectExpand" Content="{Binding ExpansionGlyph}" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                ToolTip.Tip="{Binding ExpansionHint}" a:AutomationProperties.Name="{Binding ExpansionHint}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" Classes="effectName" FontWeight="SemiBold" Margin="4,0"
+                             VerticalAlignment="Center" TextWrapping="Wrap" />
+                  <Button Grid.Column="2" Content="×" Classes="track removeEffect" Command="{Binding Remove}" Cursor="Arrow"
+                          ToolTip.Tip="{Binding RemoveHint}" a:AutomationProperties.Name="{Binding RemoveHint}" />
                 </Grid>
+              </Border>
+              <StackPanel Classes="effectBody" Spacing="8" IsEnabled="{Binding CanEdit}" IsVisible="{Binding IsExpanded}" Margin="12,8,12,0">
                 <CheckBox Content="Enabled" IsChecked="{Binding Enabled}" />
                 <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch" />
               </StackPanel>
@@ -187,4 +218,7 @@
       </ItemsControl>
     </StackPanel>
   </ScrollViewer>
+  <Border x:Name="EffectDropIndicator" Height="3" Background="{DynamicResource EditorAccent}" IsVisible="False"
+          IsHitTestVisible="False" VerticalAlignment="Top" ZIndex="10" />
+  </Grid>
 </UserControl>

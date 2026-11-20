@@ -123,9 +123,24 @@ Use disposable test material first:
   width. The global section remains permanent. Inspect edge-to-edge 5 px separators
   with distinct contrast in both themes, the "Clip Inspector" title, 26 px text
   fields, fully visible checked/unchecked global checkboxes (automatic theme-safe
-  height), and remove buttons immediately beside effect names.
+  height), and shaded effect headers with arrow/name left and remove right.
   There should be no processing-order caption, section boxes, or
   split/delete/nudge/add-effect/track buttons in the inspector.
+- Check expanded-by-default effects and arrow-only collapse/expand on clips and
+  tracks, with header/removal always visible. Collapse must not dirty the project,
+  affect audio, or create undo entries. Preserve each effect's UI state through
+  parameter edits, duplicate-kind reordering, selection changes, removal undo/redo;
+  New/Open should reset expansion.
+- Drag headers upward/downward with expanded and collapsed bodies. Verify the
+  insertion line, source highlight, edge auto-scroll, and one history entry only
+  on release. Arrow/remove buttons and sliders must not start a reorder. Cancel
+  with Escape, capture loss, outside drop, or switching target/changing the chain.
+  Global properties stay fixed. Check 200/280/520 px inspector widths and both themes.
+- Compare order-sensitive audio before/after reordering (gain/limiter, normalizer
+  prefixes, and delay chains), preserving values/bypass states. Reordering must
+  keep live playback/device/position running, affect WAV export consistently, and
+  survive save/open. Failed graph preparation must leave old order/history intact;
+  queued parameter previews must not edit a moved effect's old/new neighbor.
 - Click a clip, header, blank track area, and blank area below tracks. Check
   Clip/Track/empty inspector focus without moving the playhead. Track Inspector
   must hide timeline start, replace lock with solo, synchronize the left header's
