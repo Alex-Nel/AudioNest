@@ -6,7 +6,7 @@ namespace AudioNest.Domain;
 // Times are integer sample frames in the project clock, never UI pixels or wall time.
 public sealed record AudioProject
 {
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
     public int Version { get; init; } = CurrentVersion;
     public string Name { get; init; } = "Untitled";
     public int SampleRate { get; init; } = 48000;
@@ -63,13 +63,20 @@ public sealed record AudioProject
                 !float.IsFinite(effect.AttackMs) || effect.AttackMs is < 0.1f or > 200 ||
                 !float.IsFinite(effect.ReleaseMs) || effect.ReleaseMs is < 1 or > 2000 ||
                 !float.IsFinite(effect.MakeupDb) || effect.MakeupDb is < 0 or > 24 ||
-                !float.IsFinite(effect.ReductionDb) || effect.ReductionDb is < 0 or > 36 || effect.Kind switch
+                !float.IsFinite(effect.ReductionDb) || effect.ReductionDb is < 0 or > 36 ||
+                !float.IsFinite(effect.Mix) || effect.Mix is < 0 or > 1 ||
+                !float.IsFinite(effect.Feedback) || effect.Feedback is < 0 or > 0.9f ||
+                !float.IsFinite(effect.Damping) || effect.Damping is < 0 or > 0.95f ||
+                !float.IsFinite(effect.OutputDb) || effect.OutputDb is < -36 or > 0 || effect.Kind switch
                 {
                     EffectKind.Gain => effect.Value is < 0 or > 16,
                     EffectKind.HardLimiter or EffectKind.Limiter or EffectKind.Normalizer => effect.Value is <= 0 or > 1,
                     EffectKind.Compressor => effect.Value is < -60 or > 0,
                     EffectKind.NoiseReduction => effect.Value is < -90 or > -10,
                     EffectKind.Amplifier => effect.Value is < -60 or > 36,
+                    EffectKind.Reverb => effect.Value is < 0.2f or > 10,
+                    EffectKind.Echo => effect.Value is < 10 or > 2000,
+                    EffectKind.Distortion => effect.Value is < 0 or > 36,
                     _ => true
                 })
                 throw new InvalidDataException("Unsupported effect or invalid effect parameter.");
@@ -122,8 +129,9 @@ public sealed record AudioClip
     public long End => checked(Start + Length);
 }
 
-public enum EffectKind { Gain, HardLimiter, Compressor, Limiter, Normalizer, NoiseReduction, Amplifier }
+public enum EffectKind { Gain, HardLimiter, Compressor, Limiter, Normalizer, NoiseReduction, Amplifier, Reverb, Echo, Distortion }
 
 // Ordered, serializable descriptions, not live DSP instances or third-party plugin objects.
 public sealed record EffectSpec(EffectKind Kind, float Value, bool Bypassed = false,
-    float Ratio = 4, float AttackMs = 10, float ReleaseMs = 100, float MakeupDb = 0, float ReductionDb = 12);
+    float Ratio = 4, float AttackMs = 10, float ReleaseMs = 100, float MakeupDb = 0, float ReductionDb = 12,
+    float Mix = 0.25f, float Feedback = 0.35f, float Damping = 0.5f, float OutputDb = -6);

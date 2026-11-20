@@ -11,8 +11,9 @@ public interface IAudioProcessor
 {
     void Process(Span<float> interleavedSamples);
     void Reset();
-    // Built-ins produce silence from silence. Advance envelopes across sparse
-    // analysis gaps without visiting billions of empty timeline frames.
+    // Maximum zero-input drain before the processor guarantees empty state.
+    long TailFrames => 0;
+    // Only skip unobserved silence: analyzers must first render audible tails.
     void AdvanceSilence(long frames) => Reset();
     // Invoked only on the audio thread, after the old callback has completed.
     void CopyStateFrom(IAudioProcessor previous) { }
@@ -35,6 +36,9 @@ public sealed class BuiltInEffectFactory : IAudioEffectFactory
         EffectKind.Normalizer => new PeakNormalizerProcessor(description.Value),
         EffectKind.NoiseReduction => new NoiseReductionProcessor(description, format),
         EffectKind.Amplifier => new GainProcessor((float)Math.Pow(10, description.Value / 20d)),
+        EffectKind.Reverb => new ReverbProcessor(description, format),
+        EffectKind.Echo => new EchoProcessor(description, format),
+        EffectKind.Distortion => new DistortionProcessor(description),
         _ => throw new NotSupportedException($"Unsupported effect: {description.Kind}")
     };
 

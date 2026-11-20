@@ -126,7 +126,8 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   their mute/lock/volume/pan. Unlock before repositioning a pasted locked clip.
 - Each clip/track effect has its own section, in processing order, with parameter controls,
   an Enabled/bypass checkbox, and a remove button. Use the **Effects** menu to
-  **add** Gain, Compressor, Limiter, Normalizer, Noise Reduction, or Amplifier to the focused clip/track.
+  **add** Gain, Compressor, Limiter, Normalizer, Noise Reduction, Amplifier, Reverb,
+  Echo, or Distortion to the focused clip/track.
   Each click appends an independent instance with defaults; with nothing focused,
   these menu items are disabled and cannot edit anything. Global volume is applied
   before the corresponding effect chain and combines
@@ -160,7 +161,28 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   **−60 to +36 dB**. It is independent of global volume and the multiplier-based
   Gain effect. It does not automatically normalize, limit, or simulate amp distortion;
   put a limiter after it when stronger boosts need peak control.
+- **Reverb:** algorithmic room ambience, with approximate low-frequency decay
+  **0.2–10 seconds** (default 1.5 s), high-frequency damping **0–95%** (50%), and
+  wet mix **0–100%** (25%). Uses damped comb/allpass delays, not convolution or
+  an impulse-response loader. Stereo channels remain independent.
+- **Echo:** same-channel repeating delay, **10–2000 ms** (default 250 ms), feedback
+  **0–90%** (35%), and wet mix **0–100%** (25%). Zero feedback gives one repeat.
+  Feedback tails drain to approximately −80 dB or a **30-second maximum**, whichever
+  comes first; extreme settings can end audibly at that cap.
+- **Distortion:** symmetric soft saturation with drive **0–36 dB** (default 12 dB),
+  wet output trim **−36–0 dB** (−6 dB), and wet mix **0–100%** (100%).
+  Output trim affects only the distorted signal; 0 dB drive still soft-clips.
+  This is not an amp/cabinet model and is not oversampled, so high drive can alias.
 - Existing projects' **Hard limiter** sections remain their original hard clippers.
+
+All three new effects are transparent at 0% wet mix. Echo/reverb have no added dry
+latency. **Clip effects stop at the clip edge** (including after a trim); use track
+effects to let echoes/reverb ring into gaps. **Track tails stop at the project end**:
+playback/export duration is not extended automatically. Reverb has a bounded tail
+of twice its decay setting plus 0.1 s. Keep trailing timeline space when needed.
+Unchanged delay state survives live mix edits; edited/bypassed effects and seeks
+start fresh, without pre-roll or crossfades. Feedback/reverb can raise peaks; use a
+subsequent limiter or reduce volume to avoid the final safety clamp.
 
 Normalization analysis happens during graph preparation, not in the audio callback.
 Unchanged audio inputs reuse cached peaks (including when renaming or changing only
@@ -199,11 +221,11 @@ is not yet implemented. No source audio is rewritten.
 - Missing/changed-length media or unsupported project versions fail with an error,
   without replacing the current session. Autosave/recovery UI and garbage
   collection are not implemented. Back up valuable recordings.
-- New saves use project format **v5**, including the new effect types and noise
-  reduction depth. V1/v2/v3/v4 projects upgrade in memory, preserving existing
+- New saves use project format **v6**, including reverb/echo/distortion parameters.
+  V1/v2/v3/v4/v5 projects upgrade in memory, preserving existing
   ordered Gain/Hard limiter effects and adding unity track volume; older clip/layout
   defaults remain neutral. Their files are not rewritten until Save. Older AudioNest
-  versions reject v5 rather than silently ignoring these audio semantics.
+  versions reject v6 rather than silently ignoring these audio semantics.
 
 ## Architecture
 
@@ -249,7 +271,8 @@ See [docs/TESTING.md](docs/TESTING.md) for hardware acceptance checks.
   the hardware adapter. Export uses default codec settings (no bitrate/quality UI).
   Individual decoded assets are limited to
   **10 minutes** and kept in RAM; this is not a large-session streaming engine.
-- Gain, compressor, limiter, peak normalizer, multiband noise reduction, and amplifier
+- Gain, compressor, limiter, peak normalizer, multiband noise reduction, amplifier,
+  reverb, echo, and distortion
   are included. The final mix is
   still safety-clamped, not loudness-normalized. Unchanged dynamics retain envelopes
   across live mix edits; newly edited/bypassed effects and seeks restart their
@@ -257,7 +280,8 @@ See [docs/TESTING.md](docs/TESTING.md) for hardware acceptance checks.
 - Capture uses the default microphone in mono with a live peak-envelope preview,
   but no monitoring, overdub playback, device-settings UI, or recording-time effects.
   The envelope retains at most ten minutes; longer takes still exceed the import cap.
-- Pitch/tempo/speed processing, learned-profile/AI denoising, reverb/echo/distortion, and VST hosting are
+- Pitch/tempo/speed processing, learned-profile/AI denoising, convolution reverb,
+  oversampled distortion, and VST hosting are
   **not implemented**. Extension contracts are not claims of those capabilities.
 - Undo/redo retains 200 metadata edits and is not persisted across sessions.
 - Working media is intentionally retained; clean it manually only after saving

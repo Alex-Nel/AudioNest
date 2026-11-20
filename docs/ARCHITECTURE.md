@@ -60,7 +60,7 @@ are rejected on the live path. Export creates a separate graph, so it never shar
 processor state with playback.
 
 At the callback boundary, `AdoptStateFrom` transfers compressor/limiter envelopes
-and noise-reduction filter/gain state
+and noise-reduction filter/gain and echo/reverb delay state
 for unchanged immutable effect records on the same track/clip. Only the audio
 thread reads/copies that mutable state, after the old callback has completed.
 New, edited, bypassed/unbypassed effects start fresh. Pause/seek/stop quiesce the
@@ -195,14 +195,16 @@ The caller transfers array ownership and must not subsequently mutate it.
 callback through `IAudioEffectFactory`. Implement `Process` without allocation,
 blocking, I/O, or UI; implement `Reset` for seek/stop. Inject the factory when
 preparing a render plan. Built-in gain, legacy hard clipping, stereo-linked peak
-compression, zero-lookahead peak limiting, multiband suppression, and a dB amplifier
+compression, zero-lookahead peak limiting, multiband suppression, a dB amplifier,
+echo, algorithmic reverb, and soft saturation
 are the reference examples. Dynamics
 process by sample frame, preserve stereo balance, and do not depend on block size.
 
 For additional built-ins, extend the effect description, validation, source-generated
 serialization if needed, factory, tests, and inspector. Persistent descriptions must
-remain separate from runtime DSP. V5 `EffectSpec` stores the primary value plus
-ratio/attack/release/makeup/reduction depth with explicit optional constructor defaults. Validation
+remain separate from runtime DSP. V6 `EffectSpec` stores the primary value plus
+ratio/attack/release/makeup/reduction depth/mix/feedback/damping/wet output trim
+with explicit optional constructor defaults. Validation
 rejects non-finite/out-of-range parameters, including bypassed descriptions.
 
 `IPeakNormalizer` is configured during `RenderPlan` construction. Clip analysis
@@ -210,15 +212,19 @@ reads its actual source region/volume and preceding processors; track analysis m
 non-muted clips, their effects/balance, global track volume, and the track prefix.
 It measures pre-safety-clamp sample peaks and sets a fixed double-precision gain.
 No full-session PCM copy or callback scan is used; silent sources remain silent.
-Merged occupied intervals avoid traversing distant empty timeline regions.
+Merged occupied intervals avoid traversing distant empty timeline regions. Track
+intervals extend by the sum of prefix `TailFrames`, capped at the project duration,
+so delayed peaks in gaps are measured before silence is skipped.
 `AdvanceSilence` analytically decays compressor/limiter release and noise-reduction
 filters/per-band gain across these gaps.
-This assumes built-ins produce silence from silence; future tail-producing effects
-must extend analysis scheduling before using sparse skipping.
+Delay effects render their bounded zero-input drain before sparse skipping and
+reset once empty. Their `AdvanceSilence` discards unobserved output using bounded
+stack scratch or resets directly for gaps longer than the remaining tail.
 
 Analysis results can be reused from the previous prepared plan, with exact input
 comparison (PCM reference, source bounds, relevant volume/pan/timing/layout, and
-preceding active descriptions). New PCM invalidates the cache, even with the same
+preceding active descriptions, plus project duration for track analysis).
+New PCM invalidates the cache, even with the same
 asset ID. Target-only/metadata changes reuse peaks. Processor instances/scratch are
 always new, never shared with the callback. Analysis still runs on the control
 thread; progress, cancellation, and background-job orchestration remain future work.
@@ -232,8 +238,8 @@ bandwidth-weighted manual broadband noise-floor reference and bounded reduction
 depth. Opening/closing gains use attack/release smoothing. A 12-double stack scratch
 and constructor-allocated state arrays keep callback work bounded/allocation-free.
 Zero reduction passes samples through exactly. Zero-input frames output exact silence
-while internal filters/gains decay, so clip lengths and the no-output-tail contract
-are preserved. Sparse silence advance and unchanged-record graph handoff preserve
+while internal filters/gains decay, preserving this processor's no-output-tail
+behavior. Sparse silence advance and unchanged-record graph handoff preserve
 state. This is frequency-selective downward expansion, not profile learning, FFT
 overlap-add, AI denoising, or a substitute for a later restoration-quality processor.
 It can color/attenuate wanted low-level content; listening acceptance remains important.
@@ -244,9 +250,29 @@ the existing master ceiling and optional subsequent limiter remain independent.
 Dark startup is set in both application XAML and the view-model default to avoid
 an initial light-theme transition; the Tools toggle remains session-local.
 
-Before adding delay/reverb, buffering pitch/tempo processors, or plugins, add:
+`DelayEffectProcessor` owns the finite zero-input drain contract and same-format,
+same-description state copying. Echo uses a same-channel feedback ring, with
+10–2000 ms delay, feedback below unity, and a −80 dB/30-second tail bound.
+Reverb uses four parallel damped feedback combs (29.7/37.1/41.1/43.7 ms) followed
+by two serial allpasses (5/1.7 ms) per channel. Feedback is calibrated from the
+low-frequency −60 dB decay setting. Its tail is bounded at twice decay plus 0.1 s.
+All rings/indices/filter state are preallocated; render and state handoff allocate
+nothing. Identical per-channel networks preserve centered mono without crossfeed.
+These are basic algorithmic effects, not convolution or a stereo-width model.
 
-1. DSP tail length and silence/drain behavior after clip end.
+Clip DSP only processes the clip's source-bounded region: clip tails are deliberately
+cut at its edge. Track DSP processes silence in gaps, allowing tails up to the fixed
+project end. The renderer, transport, and exporter do not extend duration. Seeking
+and changed descriptions reset delay state with no pre-roll/crossfade. Full
+post-project/post-clip tail expansion is not implemented.
+
+Distortion uses symmetric `tanh(input * drive)` with dB-based drive, wet-only output
+trim, and dry/wet interpolation. It has no state, oversampling, or amp/cabinet model;
+high drive can alias. Zero wet mix is exactly transparent for all three new effects.
+
+Before adding buffering pitch/tempo processors or plugins, extend:
+
+1. Tail expansion after clip/project end and processor drain bounds as needed.
 2. Latency reporting/compensation and seek pre-roll.
 3. Consistent automation/parameter scheduling by project frame.
 4. Processor disposal/lifetime ownership for native plugin instances.
@@ -300,13 +326,13 @@ an effect into the only surviving source.
 
 ## Persistence and AOT
 
-Version 5 is source-generated JSON plus a sibling media directory. V1/V2/V3/V4 upgrade
+Version 6 is source-generated JSON plus a sibling media directory. V1/V2/V3/V4/V5 upgrade
 in memory with neutral defaults and preserved legacy effect
 order; older clip/layout defaults remain neutral.
 Optional JSON constructor parameters explicitly default missing clip/track volume to
 unity (source-generated init-only assignment would otherwise use zero).
 The original file is unchanged until Save. The version bump prevents older readers
-from ignoring new effect identities/reduction-depth semantics.
+from ignoring new effect identities/mix/feedback/damping/output-trim semantics.
 Save copies
 SHA-256-addressed media first and replaces a temporary metadata file last. Export
 uses the same temporary-file publication pattern. These protect the old file on

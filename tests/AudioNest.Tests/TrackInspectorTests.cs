@@ -50,7 +50,8 @@ public sealed class TrackInspectorTests
         var title = inspector.FindControl<TextBlock>("InspectorTitle")!;
         var menu = window.FindControl<Menu>("EditorMenuBar")!.Items.OfType<MenuItem>().Single(i => Equals(i.Header, "Effects"));
         var actions = menu.Items.OfType<MenuItem>().ToArray();
-        Assert.Equal(new[] { "Add Gain", "Add Compressor", "Add Limiter", "Add Normalizer", "Add Noise Reduction", "Add Amplifier" },
+        Assert.Equal(new[] { "Add Gain", "Add Compressor", "Add Limiter", "Add Normalizer", "Add Noise Reduction", "Add Amplifier",
+            "Add Reverb", "Add Echo", "Add Distortion" },
             actions.Select(i => (string)i.Header!));
         Assert.DoesNotContain(menu.Items, item => item is Separator);
         Assert.Null(vm.FocusedTarget);

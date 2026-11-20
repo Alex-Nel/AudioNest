@@ -138,6 +138,9 @@ public static class ClipEffectEditorFactory
         EffectKind.Normalizer => new NormalizerEffectEditorViewModel(owner, clip, index, spec, isTrack),
         EffectKind.NoiseReduction => new NoiseReductionEffectEditorViewModel(owner, clip, index, spec, isTrack),
         EffectKind.Amplifier => new AmplifierEffectEditorViewModel(owner, clip, index, spec, isTrack),
+        EffectKind.Reverb => new ReverbEffectEditorViewModel(owner, clip, index, spec, isTrack),
+        EffectKind.Echo => new EchoEffectEditorViewModel(owner, clip, index, spec, isTrack),
+        EffectKind.Distortion => new DistortionEffectEditorViewModel(owner, clip, index, spec, isTrack),
         _ => throw new NotSupportedException($"No clip editor registered for {spec.Kind}.")
     };
 }
@@ -165,6 +168,8 @@ public sealed class EffectParameterViewModel(ClipEffectEditorViewModel owner, st
     public void Refresh() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     public static EffectParameterViewModel Release(ClipEffectEditorViewModel owner) =>
         new(owner, "Release", 1, 2000, 1, s => s.ReleaseMs, (s, v) => s with { ReleaseMs = v }, v => $"{v:0} ms");
+    public static EffectParameterViewModel Mix(ClipEffectEditorViewModel owner) =>
+        new(owner, "Wet mix", 0, 1, 0.01, s => s.Mix, (s, v) => s with { Mix = v }, v => $"{v:P0}");
 }
 
 public sealed class CompressorEffectEditorViewModel : ClipEffectEditorViewModel
@@ -221,4 +226,49 @@ public sealed class AmplifierEffectEditorViewModel : SingleParameterEffectEditor
     protected override double Step => 0.5;
     public override string ValueText => $"{Value:+0.0;-0.0;0.0} dB";
     public string MultiplierText => $"{Math.Pow(10, Value / 20):0.00}× amplitude";
+}
+
+public sealed class ReverbEffectEditorViewModel : ClipEffectEditorViewModel
+{
+    public ReverbEffectEditorViewModel(MainViewModel owner, Guid id, int index, EffectSpec spec, bool isTrack = false)
+        : base(owner, id, index, spec, isTrack)
+    {
+        Parameters =
+        [
+            new(this, "Decay", 0.2, 10, 0.1, s => s.Value, (s, v) => s with { Value = v }, v => $"{v:0.0} s"),
+            new(this, "Damping", 0, 0.95, 0.01, s => s.Damping, (s, v) => s with { Damping = v }, v => $"{v:P0}"),
+            EffectParameterViewModel.Mix(this)
+        ];
+    }
+    public override string Name => "Reverb";
+}
+
+public sealed class EchoEffectEditorViewModel : ClipEffectEditorViewModel
+{
+    public EchoEffectEditorViewModel(MainViewModel owner, Guid id, int index, EffectSpec spec, bool isTrack = false)
+        : base(owner, id, index, spec, isTrack)
+    {
+        Parameters =
+        [
+            new(this, "Delay", 10, 2000, 1, s => s.Value, (s, v) => s with { Value = v }, v => $"{v:0} ms"),
+            new(this, "Feedback", 0, 0.9, 0.01, s => s.Feedback, (s, v) => s with { Feedback = v }, v => $"{v:P0}"),
+            EffectParameterViewModel.Mix(this)
+        ];
+    }
+    public override string Name => "Echo";
+}
+
+public sealed class DistortionEffectEditorViewModel : ClipEffectEditorViewModel
+{
+    public DistortionEffectEditorViewModel(MainViewModel owner, Guid id, int index, EffectSpec spec, bool isTrack = false)
+        : base(owner, id, index, spec, isTrack)
+    {
+        Parameters =
+        [
+            new(this, "Drive", 0, 36, 0.5, s => s.Value, (s, v) => s with { Value = v }, v => $"{v:0.0} dB"),
+            new(this, "Wet output", -36, 0, 0.5, s => s.OutputDb, (s, v) => s with { OutputDb = v }, v => $"{v:0.0} dB"),
+            EffectParameterViewModel.Mix(this)
+        ];
+    }
+    public override string Name => "Distortion";
 }

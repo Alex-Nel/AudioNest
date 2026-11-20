@@ -104,6 +104,27 @@
                    FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" />
       </StackPanel>
     </DataTemplate>
+    <DataTemplate DataType="{x:Type local:ReverbEffectEditorViewModel}" x:DataType="local:ReverbEffectEditorViewModel">
+      <StackPanel Spacing="6">
+        <ItemsControl ItemsSource="{Binding Parameters}" />
+        <TextBlock Text="Algorithmic room reverb. Clip tails stop at the clip edge; track tails stop at the project end."
+                   FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type local:EchoEffectEditorViewModel}" x:DataType="local:EchoEffectEditorViewModel">
+      <StackPanel Spacing="6">
+        <ItemsControl ItemsSource="{Binding Parameters}" />
+        <TextBlock Text="Repeating delay, up to 30 seconds of tail. Clip tails stop at the clip edge; track tails stop at the project end."
+                   FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type local:DistortionEffectEditorViewModel}" x:DataType="local:DistortionEffectEditorViewModel">
+      <StackPanel Spacing="6">
+        <ItemsControl ItemsSource="{Binding Parameters}" />
+        <TextBlock Text="Soft saturation, not an amp/cabinet model. High drive can alias; wet output trims only the distorted signal."
+                   FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource EditorMuted}" />
+      </StackPanel>
+    </DataTemplate>
   </UserControl.DataTemplates>
   <ScrollViewer x:Name="InspectorScroll" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="12" Margin="0,12">

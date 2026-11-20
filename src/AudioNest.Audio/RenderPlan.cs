@@ -19,7 +19,7 @@ public sealed class RenderPlan
     private long? _nextFrame;
     private readonly bool _builtInEffects;
     private readonly Dictionary<(Guid Id, bool Track, int Slot), Analysis> _analyses = [];
-    private sealed record Analysis(PreparedClip[] Clips, bool Mono, float Volume, EffectSpec[] Prefix, double Peak);
+    private sealed record Analysis(PreparedClip[] Clips, bool Mono, float Volume, EffectSpec[] Prefix, double Peak, long Duration);
     public int NormalizationAnalysisCount { get; private set; }
 
     public RenderPlan(AudioProject project, Func<Guid, AudioBuffer> getBuffer, IAudioEffectFactory? effects = null, RenderPlan? previous = null)
@@ -50,10 +50,11 @@ public sealed class RenderPlan
             var key = (id, isTrack, prefix.Length);
             double peak;
             if (_builtInEffects && previous is { _builtInEffects: true } && previous.Format == Format &&
-                previous._analyses.TryGetValue(key, out var old) && SameInput(old, clips, mono, volume, prefix, isTrack))
+                previous._analyses.TryGetValue(key, out var old) && (!isTrack || old.Duration == Duration) &&
+                SameInput(old, clips, mono, volume, prefix, isTrack))
                 peak = old.Peak;
             else { NormalizationAnalysisCount++; peak = scan(); }
-            _analyses[key] = new(clips, mono, volume, prefix, peak);
+            _analyses[key] = new(clips, mono, volume, prefix, peak, Duration);
             return peak;
         }
         (IAudioProcessor[] Processors, EffectSpec[] Descriptions) Prepare(IEnumerable<EffectSpec> chain, Func<IAudioProcessor[], EffectSpec[], double> analyze)
@@ -209,16 +210,19 @@ public sealed class RenderPlan
         }
         try
         {
-            // Merge occupied ranges, so distant clips do not require scanning
-            // hours of empty timeline. Dynamics advance across gaps analytically.
+            // Render zero-input tails before skipping truly empty gaps. Sum
+            // bounds for serial delays; never analyze beyond the project end.
+            long tail = 0;
+            foreach (var effect in prefix) tail += Math.Min(effect.TailFrames, Duration - tail);
+            long End(PreparedClip clip) => clip.Clip.End + Math.Min(tail, Duration - clip.Clip.End);
             var sorted = clips.OrderBy(c => c.Clip.Start).ToArray();
             if (sorted.Length == 0) return 0;
             var from = sorted[0].Clip.Start;
-            var to = sorted[0].Clip.End;
+            var to = End(sorted[0]);
             foreach (var clip in sorted.Skip(1))
             {
-                if (clip.Clip.Start <= to) to = Math.Max(to, clip.Clip.End);
-                else { Scan(from, to); from = clip.Clip.Start; to = clip.Clip.End; }
+                if (clip.Clip.Start <= to) to = Math.Max(to, End(clip));
+                else { Scan(from, to); from = clip.Clip.Start; to = End(clip); }
             }
             Scan(from, to);
             return peak;

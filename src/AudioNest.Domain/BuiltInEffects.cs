@@ -7,7 +7,7 @@ public static class BuiltInEffects
         Array.AsReadOnly(new[]
         {
             EffectKind.Gain, EffectKind.Compressor, EffectKind.Limiter, EffectKind.Normalizer,
-            EffectKind.NoiseReduction, EffectKind.Amplifier
+            EffectKind.NoiseReduction, EffectKind.Amplifier, EffectKind.Reverb, EffectKind.Echo, EffectKind.Distortion
         });
     public static string Name(EffectKind kind) => kind switch
     {
@@ -18,6 +18,9 @@ public static class BuiltInEffects
         EffectKind.Normalizer => "Normalizer",
         EffectKind.NoiseReduction => "Noise Reduction",
         EffectKind.Amplifier => "Amplifier",
+        EffectKind.Reverb => "Reverb",
+        EffectKind.Echo => "Echo",
+        EffectKind.Distortion => "Distortion",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
     public static EffectSpec Create(EffectKind kind) => kind switch
@@ -29,6 +32,9 @@ public static class BuiltInEffects
         EffectKind.Normalizer => new(kind, 0.8912509f),
         EffectKind.NoiseReduction => new(kind, -45, AttackMs: 5, ReleaseMs: 100, ReductionDb: 12),
         EffectKind.Amplifier => new(kind, 3),
+        EffectKind.Reverb => new(kind, 1.5f),
+        EffectKind.Echo => new(kind, 250),
+        EffectKind.Distortion => new(kind, 12, Mix: 1),
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 }

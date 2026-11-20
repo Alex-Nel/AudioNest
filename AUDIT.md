@@ -687,3 +687,58 @@ Further implementation and verification entries are appended below.
   and OS-scaling acceptance remain manual; the native smoke test verifies startup/
   normal close, not native effect playback.
 - `TODO.txt` was not changed. No commits or pushes were created.
+
+## 2026-11-19 — Reverb, echo, and distortion
+
+- Read the new single TODO item from a clean working tree.
+- Added Reverb, Echo, and Distortion to the focused clip/track add-only Effects
+  menu, with independent instances, typed inspectors, preview/one-step gesture
+  history, bypass/removal, and source-generated JSON persistence.
+- Reverb uses four damped parallel feedback combs and two serial allpasses per
+  channel, with decay (0.2–10 s), damping (0–95%), and wet mix. Default: 1.5 s,
+  50% damping, 25% wet.
+- Echo uses a preallocated same-channel feedback delay, with delay (10–2000 ms),
+  feedback (0–90%), and wet mix. Default: 250 ms, 35% feedback, 25% wet.
+  Zero feedback gives a single repeat; zero-input tails have a −80 dB/30 s bound.
+- Distortion uses symmetric tanh saturation with drive (0–36 dB), wet output
+  trim (−36–0 dB), and wet mix. Default: 12 dB drive, −6 dB wet output, 100% wet.
+  Output trim does not affect the dry signal. No oversampling/amp/cabinet model;
+  high-drive aliasing is an explicit limitation.
+- All three effects pass through exactly at zero wet mix. Delay state is
+  preallocated and transfers on the audio thread for unchanged descriptions.
+  Reset/seek and edited/bypassed effects start fresh without pre-roll/crossfades.
+- Preserved existing clip/project bounds: clip tails stop at clip edges; track
+  tails ring into gaps but stop at project end. Reverb's finite drain bound is
+  twice decay plus 0.1 s. Extreme echo settings can end audibly at the 30 s cap.
+- Added processor `TailFrames` bounds and extended sparse track normalization
+  intervals by the sum of preceding tail bounds, capped at project end. Silent
+  gaps beyond the drained tails can still be skipped; normalization-cache reuse
+  also considers project duration so another track extending the tail window
+  invalidates the old peak.
+- Bumped projects to v6 with optional mix/feedback/damping/wet-output defaults.
+  V1–v5 upgrade in memory, preserve old effects/sound, and do not rewrite source
+  project files until Save. No new dependencies.
+- Updated README, architecture, roadmap, manual acceptance, and About text.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **184 passed, 0 failed,
+  0 skipped**.
+- New/expanded tests cover exact echo timing/feedback, reverb diffusion/decay/
+  damping, stereo independence, distortion transfer/wet trim, zero-mix transparency,
+  silence, supported formats, block independence including audible tail cutoff/
+  retriggering, reset/sparse advance/state copy, callback allocation/live handoff,
+  tail-aware normalization/cache invalidation/distant gaps/serial delays, clip/
+  project bounds, bypass, WAV parity, malformed parameters, v1–v5 migration, and
+  both clip/track editors' gestures/history/save-open/removal/independent instances.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git -c core.autocrlf=false diff --check`: passed.
+- Inspected dark Reverb/Distortion track and Echo clip inspector captures under
+  ignored test `ui-artifacts/`; controls and explanatory text are visible.
+- Windows x64 Native AOT publish succeeded without warnings. The published
+  `artifacts/aot/win-x64/AudioNest.Desktop.exe` exposed a main window and exited
+  with code 0 after a normal close request. This verifies startup/normal close,
+  not native effect playback.
+- No physical playback/capture was started. Listening, hardware timing, non-Windows,
+  and OS-scaling acceptance remain manual.
+- `TODO.txt` was not changed. No commits or pushes were created.

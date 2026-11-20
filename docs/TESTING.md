@@ -107,7 +107,7 @@ Use disposable test material first:
   must hide timeline start, replace lock with solo, synchronize the left header's
   name/mute/solo/volume/pan, and leave clip properties/effects untouched.
 - Effects must offer only Add Gain/Compressor/Limiter/Normalizer/Noise Reduction/
-  Amplifier, without clip/
+  Amplifier/Reverb/Echo/Distortion, without clip/
   track duplicates or toggles. No-focus items must be disabled; each invocation
   appends an independent instance to the focused target. Check typed parameters,
   bypass, removal, history/save/open, mono tracks, and stale-editor/preview safety
@@ -121,8 +121,8 @@ Use disposable test material first:
   should restart envelopes, while unchanged effects retain state across live mix
   edits. Normalizer preparation must not run in the callback; test longer/dense
   material for acceptable control-thread preparation time and cached target edits.
-- Open v1/v2/v3/v4 projects and verify unchanged sound, neutral defaults, preserved
-  legacy gain/clipping, v5 saving, and parameter round trips.
+- Open v1/v2/v3/v4/v5 projects and verify unchanged sound, neutral defaults, preserved
+  legacy gain/clipping, v6 saving, and parameter round trips.
 - Verify dark startup and checked Tools → Dark mode, then toggle to light and back
   without dirtying the project. Check dark styling in owned dialogs as well.
 - Test Noise Reduction with quiet hiss/hum, voice/music over noise, asymmetric
@@ -133,6 +133,19 @@ Use disposable test material first:
   playback/export, clipping risk, and adding a subsequent limiter. Verify both new
   effects on clips/tracks, parameter previews/history/removal, save/open, and no-focus
   disabled menu state. Repeat listening checks at 8/44.1/48/192 kHz as available.
+- Test Reverb with short transients and sustained audio: change decay/damping/wet mix,
+  compare stereo/mono, and listen for decay quality. This is algorithmic, not convolution.
+- Test Echo delay/feedback/wet mix, including a single repeat at zero feedback and
+  bounded decay at maximum feedback (30 s maximum; the cap can be audible).
+- Test Distortion drive/wet output/mix, positive/negative peaks and loud inputs.
+  Wet output must not trim dry signal; 0 dB drive still saturates. Compare low-rate/
+  high-drive aliasing; this processor does not oversample or model an amp/cabinet.
+- Check all three at 0% wet (transparent), bypass, clip/track insertion, independent
+  instances, one-undo-per-drag, removal, save/open, and playback/export agreement.
+  Echo/reverb clip tails stop at clip edges; track tails ring into gaps but stop at
+  project end. No automatic duration extension or seek pre-roll. Check trim, mute/
+  solo, seek/stop/restart, live unrelated edits (state retained), effect changes (fresh
+  state), and a normalizer after delays with overlapping/gapped/distant clips.
 - Drag the inspector divider to both limits, shrink/restore the window, and
   verify remembered width and timeline/ruler alignment. Change clip selection and
   confirm status text and inspector metadata/effect rows follow the selection.

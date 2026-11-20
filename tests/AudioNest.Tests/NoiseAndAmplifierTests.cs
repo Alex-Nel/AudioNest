@@ -264,6 +264,7 @@ public sealed class NoiseAndAmplifierTests
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
+    [InlineData(5)]
     public async Task OlderProjectsKeepTheirEffectsAndReceiveHarmlessReductionDefaults(int version)
     {
         using var directory = new TempDirectory();
@@ -279,7 +280,7 @@ public sealed class NoiseAndAmplifierTests
         var original = json.ToJsonString();
         await File.WriteAllTextAsync(path, original);
         var loaded = await store.LoadAsync(path);
-        Assert.Equal(5, loaded.Version);
+        Assert.Equal(AudioProject.CurrentVersion, loaded.Version);
         Assert.Equal(new EffectSpec(EffectKind.Gain, 2), loaded.Tracks[0].Effects[0]);
         Assert.Equal(original, await File.ReadAllTextAsync(path));
     }

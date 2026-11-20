@@ -51,6 +51,9 @@ public sealed class DynamicsTests
     [InlineData(EffectKind.Compressor)]
     [InlineData(EffectKind.Limiter)]
     [InlineData(EffectKind.NoiseReduction)]
+    [InlineData(EffectKind.Reverb)]
+    [InlineData(EffectKind.Echo)]
+    [InlineData(EffectKind.Distortion)]
     public void DynamicsAreBlockIndependentAndResetOnDiscontinuousRender(EffectKind kind)
     {
         var project = TestProjects.Create(4800);
@@ -147,6 +150,9 @@ public sealed class DynamicsTests
     [InlineData(EffectKind.Normalizer)]
     [InlineData(EffectKind.NoiseReduction)]
     [InlineData(EffectKind.Amplifier)]
+    [InlineData(EffectKind.Reverb)]
+    [InlineData(EffectKind.Echo)]
+    [InlineData(EffectKind.Distortion)]
     public void PreparedDynamicsDoNotAllocateInAudioCallback(EffectKind kind)
     {
         var project = TestProjects.Create(10000);
