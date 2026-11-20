@@ -84,6 +84,13 @@ The UI separates a clip canvas from a pinned ruler and actual per-track controls
 Only ruler pointer gestures seek; clip drags preserve the cursor. `ClipSnapping`
 resolves frame positions independently of UI, with an eight-pixel tolerance
 converted to frames by the presentation layer. One drag is one undoable edit.
+Move and trim previews/commits share frame-based resolution. Trim snapping considers
+the playhead and every other clip's edges across tracks, including other selected
+clips, but rejects targets outside source/one-frame bounds and ignores its own edges.
+Left Shift XORs the clip Snap toggle; the legacy Alt bypass still forces free
+editing. Physical-left Shift changes invalidate the preview even without pointer
+movement. A Shift-click on a selected, draggable clip defers membership removal
+until release without a drag, so Shift-drag preserves the anchor/group.
 Ruler/clip horizontal scroll offsets are synchronized; vertical track scrolling
 moves headers and clips together. Timeline extents grow from the viewport rather
 than a fixed minimum width. Clip drawing is limited to its effective viewport.
@@ -93,7 +100,8 @@ timeline position. Both apply the new layout extent before assigning the new
 scroll offset. Only physical-left
 Alt/Shift state enables the new gestures; window deactivation clears that state.
 Left-Shift ruler snapping reuses frame-based clip boundaries with a screen-pixel
-tolerance, independent of the optional clip-move snapping toggle.
+tolerance, independent of the clip move/resize Snap toggle: ruler seeking is free
+unless Left Shift is held.
 
 Track slider drags keep a transient presentation preview and commit one metadata
 edit on release or capture loss; keyboard steps commit individually. Thus dragging

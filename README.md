@@ -64,9 +64,14 @@ uses the selected track and playhead. Right-click paste/split uses the clicked t
   keeps the timeline time under the **mouse pointer** anchored.
   Unmodified wheel scrolling navigates the timeline. **Left Shift + ruler drag**
   magnetically snaps the cursor to clip starts/ends on any track within eight pixels.
-- **Snap** magnetically aligns either moving clip edge with the playhead or other
-  clip boundaries (across tracks) within eight screen pixels. Hold **Alt** to
-  bypass it for one drag; turn Snap off for free positioning.
+  The playhead otherwise moves freely, regardless of the Snap toggle.
+- **Snap** magnetically aligns moving clips and resized clip edges with the playhead
+  or other clip boundaries on **any track**, within eight screen pixels.
+  **Left Shift temporarily inverts Snap** during either move or resize: Snap on
+  becomes free editing; Snap off becomes snapping. Right Shift does not invert it.
+  Shift-click still adds/removes selection; Shift-drag keeps the selected group.
+  The existing **Alt** bypass still forces free editing. Resizing always respects
+  source limits and keeps at least one frame, even when snapping.
 - Dark mode is the startup default. Toggle **Tools → Dark mode** off for light mode.
   The light-mode clip canvas uses a soft gray background; track headers are unchanged.
   Theme, mouse tool, and snapping preferences are session-local, not project edits.

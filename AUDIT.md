@@ -742,3 +742,40 @@ Further implementation and verification entries are appended below.
 - No physical playback/capture was started. Listening, hardware timing, non-Windows,
   and OS-scaling acceptance remain manual.
 - `TODO.txt` was not changed. No commits or pushes were created.
+
+## 2026-11-20 — Cross-track resize snapping and Left Shift inversion
+
+- Started from a clean working tree and implemented the requested interaction
+  adjustment without changing project format, audio processing, or source media.
+- Both resize edges now snap to other clips' starts/ends on every track and the
+  playhead using the existing eight-screen-pixel tolerance. The resolver ignores
+  the resized clip itself, permits other selected clips as targets, and rejects
+  unreachable source bounds/zero-length results. The opposite edge is preserved.
+- Move/resize snapping uses Snap-toggle XOR physical Left Shift; Right Shift does
+  not invert it. The existing Alt bypass remains available. Ruler seeking retains
+  its separate policy: free regardless of Snap, snapping only with Left Shift.
+- Resize rendering and release share the same resolver and show a cross-track
+  snap guide. Left Shift changes invalidate the preview without requiring further
+  pointer movement; release resolves using the current modifier state.
+- Deferred selected-clip Shift-click removal until a click completes without a
+  drag, preserving Shift-click group toggling while allowing Shift-drag to keep
+  its selected anchor/group. Capture loss cancels the deferred action.
+- Updated the Snap tooltip, README, architecture, and manual acceptance notes.
+
+### Verification
+
+- `dotnet test AudioNest.sln --configuration Release`: **213 passed, 0 failed,
+  0 skipped**. Added 29 cases covering both trim edges/cross-track start/end targets,
+  nearest valid targets, source/one-frame/locked/extreme-frame bounds, movement and
+  resize Snap/Left Shift combinations, Right Shift isolation, mid-capture modifier
+  changes, unchanged preview metadata, one-step undo/redo, ruler independence,
+  and Shift-click/Shift-drag group selection.
+- `dotnet format AudioNest.sln --verify-no-changes --no-restore`: passed.
+- `git -c core.autocrlf=false diff --check`: passed.
+- Inspected snapped/free resize preview captures: track 1's end aligns with track
+  3's boundary with a guide; Left Shift removes the guide and permits a free edge.
+- Windows x64 Native AOT publish succeeded without warnings. The published
+  executable opened a main window and exited normally with code 0.
+- Native gesture checks on physical keyboards, OS scaling, and non-Windows remain
+  manual; automated pointer/key interaction coverage uses the headless desktop.
+- `TODO.txt` was not changed. No commits or pushes were created.

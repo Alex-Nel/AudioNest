@@ -17,6 +17,7 @@ public sealed class TimelineControl : Control
     private Point _pointer;
     private bool _dragging;
     private bool _bypassSnapping;
+    private bool _toggleSelectionOnClick;
     private Rect _viewport;
     private enum Gesture { Move, TrimStart, TrimEnd }
     private Gesture _gesture;
@@ -44,8 +45,9 @@ public sealed class TimelineControl : Control
     private long FrameDelta(double pixels) => (long)Math.Round(pixels / _vm!.PixelsPerSecond * _vm.Project.SampleRate);
     private ClipSnap DragPosition() => _vm!.ResolveClipMove(_dragClip!,
         Math.Max(0, _dragClip!.Start + FrameDelta(_pointer.X - _press.X)), _bypassSnapping);
-    private long TrimFrame() => (_gesture == Gesture.TrimStart ? _dragClip!.Start : _dragClip!.End) +
-        FrameDelta(_pointer.X - _press.X);
+    private ClipTrimSnap TrimPosition() => _vm!.ResolveClipTrim(_dragClip!,
+        (_gesture == Gesture.TrimStart ? _dragClip!.Start : _dragClip!.End) + FrameDelta(_pointer.X - _press.X),
+        _gesture == Gesture.TrimStart, _bypassSnapping);
     private AudioClip? HitClip(Point point)
     {
         if (_vm is null || point.Y < 0) return null;
@@ -73,6 +75,7 @@ public sealed class TimelineControl : Control
         base.Render(context);
         var vm = _vm;
         if (vm is null) return;
+        var trim = _dragging && _dragClip is not null && _gesture != Gesture.Move ? TrimPosition() : (ClipTrimSnap?)null;
         var palette = TimelinePalette.For(vm);
         var visible = _viewport.Width > 0 ? _viewport : new Rect(Bounds.Size);
         context.FillRectangle(palette.Surface, new Rect(Bounds.Size));
@@ -101,8 +104,8 @@ public sealed class TimelineControl : Control
                 new Point(Bounds.Width, top + height - 1));
             foreach (var original in track.Clips)
             {
-                var clip = _dragging && _dragClip?.Id == original.Id && _gesture != Gesture.Move
-                    ? vm.PreviewTrim(original, TrimFrame(), _gesture == Gesture.TrimStart) : original;
+                var clip = trim is { } preview && _dragClip?.Id == original.Id
+                    ? vm.PreviewTrim(original, preview.Frame, _gesture == Gesture.TrimStart) : original;
                 var rect = new Rect(X(clip.Start), top + 8, Math.Max(2, X(clip.End) - X(clip.Start)), height - 16);
                 if (!rect.Intersects(visible)) continue;
                 using (context.PushClip(rect))
@@ -141,6 +144,8 @@ public sealed class TimelineControl : Control
             }
         }
         DrawRecording(context, vm, palette, visible);
+        if (trim?.Target is { } trimTarget)
+            context.DrawLine(new Pen(palette.Accent, 1), new Point(X(trimTarget), 0), new Point(X(trimTarget), Bounds.Height));
         if (vm.Project.Duration == 0 && !vm.IsRecording)
             Text(context, "Import audio or record a take to begin.", new Point(visible.Left + 24, 54), palette.Muted, 13);
         if (_dragging && _gesture == Gesture.Move && _dragClip is not null && vm.Project.Tracks.Length > 0)
@@ -197,14 +202,25 @@ public sealed class TimelineControl : Control
         _press = _pointer = e.GetPosition(this);
         _dragClip = null;
         _dragging = false;
+        _toggleSelectionOnClick = false;
         _bypassSnapping = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
         var row = _vm.TrackIndexAt(_press.Y);
         if (row >= 0)
         {
             var track = _vm.Project.Tracks[row];
             var clip = HitClip(_press);
+            if (clip is not null)
+            {
+                _gesture = GestureAt(clip, _press.X);
+                // A Shift-click still toggles selection, but a Shift-drag must
+                // retain the selected anchor/group so snapping can be inverted.
+                _toggleSelectionOnClick = _vm.IsSelectionTool && _vm.IsLeftShiftDown &&
+                    _vm.IsClipSelected(clip.Id) && !clip.Locked &&
+                    (_gesture != Gesture.Move || !_vm.Project.Tracks.SelectMany(t => t.Clips)
+                        .Any(c => c.Locked && _vm.IsClipSelected(c.Id)));
+            }
             if (clip is null) _vm.ClearSelection(track.Id);
-            else _vm.Select(track.Id, clip.Id, _vm.IsSelectionTool && _vm.IsLeftShiftDown,
+            else _vm.Select(track.Id, clip.Id, _vm.IsSelectionTool && _vm.IsLeftShiftDown && !_toggleSelectionOnClick,
                 preserveGroup: _vm.IsClipSelected(clip.Id), focusTrack: false);
             if (_vm.IsRazorTool)
             {
@@ -215,9 +231,8 @@ public sealed class TimelineControl : Control
             _dragClip = clip;
             if (clip is not null && !_vm.IsClipSelected(clip.Id)) { e.Handled = true; return; }
             if (clip is not null && (clip.Locked ||
-                GestureAt(clip, _press.X) == Gesture.Move && _vm.Project.Tracks.SelectMany(t => t.Clips).Any(c => c.Locked && _vm.IsClipSelected(c.Id))))
+                _gesture == Gesture.Move && _vm.Project.Tracks.SelectMany(t => t.Clips).Any(c => c.Locked && _vm.IsClipSelected(c.Id))))
             { _dragClip = null; e.Handled = true; return; }
-            if (clip is not null) _gesture = GestureAt(clip, _press.X);
             if (clip is not null) e.Pointer.Capture(this);
         }
         else _vm.ClearSelection();
@@ -247,7 +262,7 @@ public sealed class TimelineControl : Control
         {
             _pointer = e.GetPosition(this);
             _bypassSnapping = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-            if (_gesture != Gesture.Move) _vm.Trim(_dragClip.Id, TrimFrame(), _gesture == Gesture.TrimStart);
+            if (_gesture != Gesture.Move) _vm.Trim(_dragClip.Id, TrimPosition().Frame, _gesture == Gesture.TrimStart);
             else
             {
                 var row = TargetRow(_pointer.Y);
@@ -256,8 +271,11 @@ public sealed class TimelineControl : Control
                 _vm.Select(ProjectEdits.FindTrack(_vm.Project, _dragClip.Id).Id, _dragClip.Id, preserveGroup: true);
             }
         }
+        else if (_vm is not null && _dragClip is not null && _toggleSelectionOnClick)
+            _vm.Select(ProjectEdits.FindTrack(_vm.Project, _dragClip.Id).Id, _dragClip.Id, additive: true, focusTrack: false);
         _dragClip = null;
         _dragging = false;
+        _toggleSelectionOnClick = false;
         e.Pointer.Capture(null);
         Refresh();
     }
@@ -266,6 +284,7 @@ public sealed class TimelineControl : Control
         base.OnPointerCaptureLost(e);
         _dragClip = null;
         _dragging = false;
+        _toggleSelectionOnClick = false;
         Refresh();
     }
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)

@@ -45,7 +45,7 @@
             <PathIcon Data="{StaticResource IconRazor}" />
           </ToggleButton>
           <ToggleButton x:Name="SnapButton" Classes="editorControl toolbarText" Margin="10,2,4,2" Content="Snap" IsChecked="{Binding IsSnappingEnabled}"
-                        ToolTip.Tip="Snap clip edges (Alt bypasses clip snapping)" />
+                        ToolTip.Tip="Snap moving/resized clip edges across tracks · left Shift inverts · Alt bypasses" />
           <Button x:Name="ZoomOutButton" Classes="editorControl" Margin="10,2,4,2" Click="ZoomOutClick" ToolTip.Tip="Zoom out around playhead" a:AutomationProperties.Name="Zoom out">
             <PathIcon Data="{StaticResource IconZoomOut}" />
           </Button>

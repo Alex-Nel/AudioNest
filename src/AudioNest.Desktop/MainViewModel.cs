@@ -25,6 +25,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private double _timelineViewportWidth = 600;
     private double _timelineViewportHeight = 300;
     private bool _isSnappingEnabled = true;
+    private bool _isLeftShiftDown;
     private bool _isDarkMode = true;
     private float _outputPeak;
     private float _inputPeak;
@@ -106,7 +107,19 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         IsBusy || IsRecording || Status.StartsWith("Error:", StringComparison.Ordinal)
             ? $"{SelectionStatus} — {Status}" : SelectionStatus;
     public bool IsLeftAltDown { get; set; }
-    public bool IsLeftShiftDown { get; set; }
+    public bool IsLeftShiftDown
+    {
+        get => _isLeftShiftDown;
+        set
+        {
+            if (_isLeftShiftDown == value) return;
+            _isLeftShiftDown = value;
+            // Re-evaluate a captured clip's preview even without pointer movement.
+            TimelineChanged?.Invoke();
+        }
+    }
+    private bool SnapClips => IsSnappingEnabled != IsLeftShiftDown;
+    private long SnapTolerance => (long)(TimelineMetrics.SnapPixels / PixelsPerSecond * Project.SampleRate);
     public double OutputLevel => MeterLevel(_outputPeak);
     public double InputLevel => MeterLevel(_inputPeak);
     public string OutputMeterText => $"Timeline output: {Decibels(_outputPeak)}";
@@ -250,7 +263,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void Seek(long frame) { if (CanEdit) { _transport.Seek(frame); Notify(); } }
     public void SeekFromRuler(long frame) => Seek(IsLeftShiftDown
-        ? ClipSnapping.SnapPlayhead(Project, frame, (long)(TimelineMetrics.SnapPixels / PixelsPerSecond * Project.SampleRate))
+        ? ClipSnapping.SnapPlayhead(Project, frame, SnapTolerance)
         : frame);
     public void SetTimelineViewportWidth(double width)
     {
@@ -312,6 +325,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public AudioClip PreviewTrim(AudioClip clip, long frame, bool start) => start
         ? ClipTrimming.Start(clip, frame)
         : ClipTrimming.End(clip, Project.Assets.First(a => a.Id == clip.AssetId), frame);
+    public ClipTrimSnap ResolveClipTrim(AudioClip clip, long frame, bool start, bool bypassSnapping = false)
+    {
+        if (SnapClips && !bypassSnapping)
+            return ClipSnapping.ResolveTrim(Project, clip, frame, start, Position, SnapTolerance);
+        var bounded = PreviewTrim(clip, frame, start);
+        return new(start ? bounded.Start : bounded.End, null);
+    }
     public void Trim(Guid clip, long frame, bool start) => Edit(start ? "Trim clip start" : "Trim clip end",
         p => start ? ProjectEdits.TrimStart(p, clip, frame) : ProjectEdits.TrimEnd(p, clip, frame));
     public void Copy()
@@ -379,8 +399,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         var minimum = clip.Start - members.Min(c => c.Start);
         var maximum = long.MaxValue - (members.Max(c => c.End) - clip.Start);
         start = Math.Clamp(start, minimum, maximum);
-        var snap = IsSnappingEnabled && !bypassSnapping
-            ? ClipSnapping.Resolve(Project, clip, start, Position, (long)(TimelineMetrics.SnapPixels / PixelsPerSecond * Project.SampleRate), _selected)
+        var snap = SnapClips && !bypassSnapping
+            ? ClipSnapping.Resolve(Project, clip, start, Position, SnapTolerance, _selected)
             : new ClipSnap(start, null);
         var bounded = Math.Clamp(snap.Start, minimum, maximum);
         return bounded == snap.Start ? snap : new ClipSnap(bounded, null);

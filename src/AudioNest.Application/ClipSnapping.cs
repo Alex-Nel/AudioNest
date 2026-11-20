@@ -3,6 +3,7 @@ using AudioNest.Domain;
 namespace AudioNest.Application;
 
 public readonly record struct ClipSnap(long Start, long? Target);
+public readonly record struct ClipTrimSnap(long Frame, long? Target);
 
 /// <summary>Frame-based magnetic snapping, independent of UI coordinates and zoom.</summary>
 public static class ClipSnapping
@@ -21,6 +22,39 @@ public static class ClipSnapping
             }
         }
         return best;
+    }
+
+    /// <summary>Snap only the resized edge, ignoring itself but not other selected
+    /// clips. Unreachable source/one-frame bounds are never magnetic targets.</summary>
+    public static ClipTrimSnap ResolveTrim(AudioProject project, AudioClip clip, long proposed, bool start,
+        long playhead, long tolerance)
+    {
+        if (clip.Locked) return new(start ? clip.Start : clip.End, null);
+        var asset = project.Assets.First(a => a.Id == clip.AssetId);
+        var minimum = start ? Math.Max(0, clip.Start - clip.SourceOffset) : clip.Start + 1;
+        var maximum = start ? clip.End - 1 :
+            clip.Start + Math.Min(asset.FrameCount - clip.SourceOffset, long.MaxValue - clip.Start);
+        var frame = Math.Clamp(proposed, minimum, maximum);
+        var best = frame;
+        long? guide = null;
+        var distance = long.MaxValue;
+        void Consider(long target)
+        {
+            if (target < minimum || target > maximum) return;
+            var delta = Math.Abs(target - frame);
+            if (delta > tolerance || delta >= distance) return;
+            best = target;
+            guide = target;
+            distance = delta;
+        }
+        Consider(playhead);
+        foreach (var other in project.Tracks.SelectMany(t => t.Clips))
+        {
+            if (other.Id == clip.Id) continue;
+            Consider(other.Start);
+            Consider(other.End);
+        }
+        return new(best, guide);
     }
 
     public static ClipSnap Resolve(AudioProject project, AudioClip moving, long proposedStart, long playhead, long tolerance,

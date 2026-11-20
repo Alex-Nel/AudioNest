@@ -34,14 +34,20 @@ Use disposable test material first:
   Confirm the original source is unchanged.
 - Click/drag only the ruler to seek, including dragging outside it while captured.
   Clip selection/movement and track-header buttons must not move the playhead.
-- Toggle Snap, align both clip edges to the cursor/other clips at different zoom
-  levels, and hold Alt to bypass. Undo a drag in one operation.
+- Toggle Snap and move/resize clips at different zoom levels, aligning either edge
+  to the cursor or starts/ends on any track (including track 1 versus track 3).
+  Left Shift must invert the toggle: on → free, off → snap. Right Shift must not.
+  Press/release Left Shift during capture, including without further pointer
+  movement before release; preview and commit must agree. The snap guide must
+  match the actual resized edge. Alt still forces free editing. Undo/redo each
+  completed drag in one operation, preserving source bounds and the opposite edge.
 - Use toolbar magnifiers at different scroll offsets: preserve the visible
   playhead's screen x, or bring an offscreen playhead into view. Left-Alt wheel
   zoom must instead preserve the time under the mouse. Ordinary wheel scrolling
   navigates without changing zoom.
 - Hold left Shift while seeking with the ruler: test nearby boundaries on every
-  track. Right Alt/Shift should not activate these side-specific gestures.
+  track with Snap both on and off. Without Left Shift, the ruler must remain free
+  regardless of Snap. Right Alt/Shift should not activate these side-specific gestures.
 - Drag both clip edges inward/outward, including adjacent/tiny clips. Expansion
   must reveal the original source, stop at source limits/zero time, and keep at
   least one frame. Check preview waveform, undo/redo, and save/open.
@@ -55,6 +61,8 @@ Use disposable test material first:
 - Left-Shift click clips across several tracks, toggle membership, then drag,
   cut/copy/paste, delete, and undo each operation. Relative timing/track spacing
   must survive, including movement against zero time and the first/last track.
+  Shift-drag an already-selected clip without removing it from the group; also
+  Shift-click it without dragging to remove it, and click again to add it.
 - Rename through an existing header's context menu, undo/redo, save/reopen.
   Delete a different, right-clicked track through the same menu and undo it.
   Drag its bottom grip to the 164/600 px limits; verify all later headers, clips,
